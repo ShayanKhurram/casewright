@@ -1,0 +1,52 @@
+"""Case CRUD. Every query here is firm-scoped — list filters by the caller's firm_id, and
+single-case reads go through get_case_scoped so a cross-tenant id 404s."""
+
+from fastapi import APIRouter, Depends
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.deps import get_case_scoped, get_current_user
+from app.db import get_db
+from app.models.case import Case
+from app.models.tenant import User
+from app.schemas.case import CaseCreate, CaseOut
+from app.services import audit
+
+router = APIRouter(prefix="/cases", tags=["cases"])
+
+
+@router.post("", response_model=CaseOut, status_code=201)
+async def create_case(
+    payload: CaseCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Case:
+    case = Case(firm_id=current_user.firm_id, **payload.model_dump())
+    db.add(case)
+    await db.flush()
+    await audit.record(
+        db,
+        firm_id=current_user.firm_id,
+        actor=f"user:{current_user.email}",
+        action="case.created",
+        case_id=case.id,
+        detail={"beneficiary_name": case.beneficiary_name, "visa_category": case.visa_category},
+    )
+    await db.refresh(case)
+    return case
+
+
+@router.get("", response_model=list[CaseOut])
+async def list_cases(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[Case]:
+    result = await db.execute(
+        select(Case).where(Case.firm_id == current_user.firm_id).order_by(Case.created_at.desc())
+    )
+    return list(result.scalars().all())
+
+
+@router.get("/{case_id}", response_model=CaseOut)
+async def get_case(case: Case = Depends(get_case_scoped)) -> Case:
+    return case
