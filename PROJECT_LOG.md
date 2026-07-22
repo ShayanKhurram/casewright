@@ -603,6 +603,84 @@ after the T5.2 pi-drift incident below appended past it.)*
   and served-asset checks were verified. Worth a real visual pass (human or a future
   screenshot-capable session) before this ships to an actual pilot firm.
 
+### 2026-07-22 (final) — T5.8: accessibility pass, closing out Phase 5
+
+- Reused T3.4's method deliberately rather than a cosmetic pass: wrote a small Python script
+  implementing the WCAG sRGB relative-luminance formula and computed exact contrast ratios for
+  every real color pair the redesign actually uses (a calculator instead of by-hand arithmetic,
+  but the same "compute it, don't eyeball it" discipline). Found **six real text-contrast
+  failures**, all fixed in `theme/tokens.css`, each with a genuine reason it wasn't just a
+  cosmetic nitpick:
+  - `--text-faint` failed even 3:1 on `surface-2` (2.95:1) despite being real text (mono
+    timestamps, labels) at ~30 call sites across the app — brightened.
+  - `--gap` as text (error messages, "Unverified" labels) failed 4.5:1 on `surface-2` (4.21:1)
+    — brightened. This directly conflicted with the destructive Button needing `--gap` to stay
+    *dark enough* for white text at 4.5:1 (white-on-plain-gap was only 3.82:1) — resolved by
+    adding a separate `--gap-fill` token for that one fill use, keeping `--gap` itself as the
+    text-safe value everywhere else (15 of its 16 real call sites).
+  - `--accent-hover` (Button's primary-hover fill) only gave white text 4.03:1 — the original
+    "lighter on hover" direction was backwards for white-text contrast; darkened instead, which
+    still reads as a distinct hover state.
+  - New `--accent-text` for the one place `--accent` is used as link text (EvidenceTab) — the
+    brand accent itself is too close in luminance to the dark surfaces to work as body text at
+    any point, so `--accent` stays unchanged for its many non-text brand uses.
+  - New `--run-text` for `Pill`'s "run" tone specifically: `run` passes fine as text against a
+    *plain* surface-2 (4.97:1), but the tone's own `bg-run/10` self-tint lightens the effective
+    background just enough to drop that to 4.31:1 — only found by computing contrast against
+    the actual composited background a Pill renders, not the bare token backgrounds. This is
+    the kind of failure a "check each token against `bg`/`surface`/`surface-2`" checklist would
+    have missed entirely.
+  - **The most consequential single finding**: every focus ring in the app
+    (`ring-accent/40` on Button/Input/Select/Textarea) computed to ~1.5:1 — and even `--accent`
+    at *full* opacity only reaches 3.75:1 against `bg`, so no alpha level of the brand accent
+    could have cleared the 3:1 WCAG minimum for focus indicators. This means every keyboard
+    user's focus state across the entire app was near-invisible since T5.2 first built these
+    primitives, unnoticed because nothing in the build/test pipeline checks visual contrast and
+    there's no browser available to have caught it by eye either. Fixed by switching all four
+    to `ring-accent-text/70` (3.24–3.37:1). Also caught Radix `Select`'s keyboard-highlighted
+    dropdown item at 1.09:1 (`bg-surface` highlight on a `bg-surface-2` panel) — `data-
+    highlighted` is Radix's keyboard-arrow-navigation state, not just mouse hover, so this
+    genuinely needed a real fix (ordinary `:hover`-only affordances elsewhere were correctly
+    left alone, since hover contrast isn't itself a WCAG requirement); fixed with a border-l-2
+    rail, consistent with the app's existing rail-based state-indication language rather than
+    fighting for background-fill contrast in a UI that structurally doesn't have much luminance
+    headroom for that.
+- **Reduced motion**: grepped every `animate-*` usage and found 6 that were decorative but not
+  wired through a `--duration-*` token (so unaffected by `tokens.css`'s reduced-motion zeroing):
+  `Skeleton.tsx`'s shimmer (used by every loading skeleton in the app — broad impact),
+  `DeadlineRing`'s urgent pulse, `UserMenu`'s loading-avatar pulse, and three separate
+  `animate-ping` pulsing-dot usages. Fixed with Tailwind's built-in `motion-reduce:animate-none`
+  variant — verified it actually emits real CSS before trusting it (same "verify, don't assume"
+  discipline the T5.2 Tailwind-alpha-modifier incident established), no plugin required.
+  `Button`'s loading spinner was deliberately left un-reduced — it communicates an in-progress
+  operation (WCAG 2.3.3 treats this as functional, not decorative), unlike every other animation
+  in the app which is ambient/decorative — documented in-code so it doesn't read as an oversight.
+- **Tablet check**: `CaseWorkspace`'s Tabs list and `DraftsTab`'s three-pane reviewer both get
+  genuinely tight below ~1024px (6 tabs with badges; two fixed-width panes squeezing the
+  center). Added `overflow-x-auto` as a safety net to both plus the Evidence/RFE data tables,
+  and `flex-wrap` to three button rows. Explicitly did NOT claim to have solved the Drafts
+  three-pane's real narrowness problem — a proper fix (e.g. collapsing the source panel below
+  the body under a breakpoint) needs visual iteration this environment can't do; disclosed as a
+  known limitation instead. Confirmed Dashboard's grid and Login's split panel already handle
+  tablet correctly via their existing `sm:`/`lg:` breakpoints from T5.5 — no changes needed.
+- **Cleanup**: removed the legacy light-theme Tailwind tokens (`ink`/`paper`/`slate`/`hairline`/
+  `oxblood`/`verdict-*`) from `tailwind.config.js`, per the "remove in T5.8" comment left there
+  in T5.1 — confirmed via a fresh repo-wide grep first that nothing still references them.
+- Verified incrementally (every batch of token/component changes got its own build+test+hex
+  pass, not one big verification at the end): `npm run build`/`npm test` (14/14) clean
+  throughout, hex grep clean, and — learning directly from the T5.3 "stale image" incident
+  earlier this same day — a full `docker compose build frontend` + container recreate, then
+  pulled the *actually-deployed* CSS through nginx and grepped it for the new token values to
+  confirm the running container wasn't serving a stale build, plus a live login flow check.
+  Caveat unchanged from every prior T5.x round: no browser/screenshot tool exists here, so none
+  of this — including whether the new focus rings and Select highlight actually look right —
+  has been confirmed by eye. The contrast ratios are computed against the real rendered colors,
+  which is the rigorous, verifiable half of an accessibility audit, but a real visual pass
+  (human, or a future screenshot-capable session) is still the right next step before this UI
+  goes anywhere near a pilot firm.
+- **Phase 5 (UI Redesign) is now complete** — all of T5.1–T5.8 reviewed and passed. See
+  `PLAN.md` for the full per-task acceptance detail.
+
 ## Known Issues / Open TODOs
 
 All four plan phases now have code-level completeness (see `PLAN.md`), and both major
@@ -674,12 +752,14 @@ live against a real model, not just mocked ones. What's left below is smaller an
   `npm run build`/`npm test`, hex grepping, and live API contract calls, which catch type/data
   errors but not visual defects (contrast, spacing, animation timing/jank, the three-pane
   Drafts layout at real viewport widths). Do a real visual pass before any pilot-firm usage.
-- `DeadlineRing`'s urgent-deadline pulse (redesign plan §5's "slow 2s pulse" for <14 days
-  remaining) uses Tailwind's stock `animate-pulse` utility, which has its own fixed 2s duration
-  hardcoded in Tailwind itself — unlike this app's other animations, it is NOT wired through a
-  `--duration-*` token var, so it does not yet respect `prefers-reduced-motion`. Flagged
-  in-code; T5.8's reduced-motion pass should either give it a token-driven duration or add an
-  explicit reduced-motion override.
+- **RESOLVED T5.8**: `DeadlineRing`'s urgent-pulse and 5 other decorative `animate-*` usages
+  (Skeleton shimmer, UserMenu's loading pulse, 3× `animate-ping` dots) weren't wired through a
+  `--duration-*` token and didn't respect `prefers-reduced-motion` — all fixed with Tailwind's
+  built-in `motion-reduce:animate-none` variant. See T5.8's timeline entry for the full list.
+- `DraftsTab`'s three-pane reviewer gets genuinely tight below ~1024px (two fixed-width panes
+  squeeze the center pane) — T5.8 added `overflow-x-auto` as a safety net so it scrolls rather
+  than breaking, but a real fix (e.g. collapsing the source panel below the body on narrow
+  viewports) needs visual iteration this environment can't do without a browser tool.
 - Dashboard's "PipelineTracker-mini" progress strip (a 4px bar showing
   `completed_nodes.length / topology.length`) is a simplification of the redesign plan's fuller
   per-case mini-tracker — it shows overall fraction-complete, not the segmented per-node view

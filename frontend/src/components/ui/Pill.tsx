@@ -15,8 +15,12 @@ export interface PillProps {
  * Tailwind's JIT scanner detects each `bg-<tone>/10` class and emits it. This relies on the
  * T5.1 token colors being defined as `rgb(var(--x-rgb) / <alpha-value>)` in tailwind.config.js
  * — a bare `var(--x)` color would make the `/10` modifier emit no CSS at all. */
+// `run`'s text uses `text-run-text`, not `text-run` (T5.8 WCAG audit): the label sits on its
+// own `bg-run/10` tint, which lightens the effective background just enough that plain --run
+// (4.97:1 on bare surface-2) drops to 4.31:1 against the tinted fill — run-text clears both.
+// `dot` stays plain --run (a non-text UI dot only needs 3:1, comfortably met either way).
 const TONE: Record<PillTone, { text: string; fill: string; dot: string }> = {
-  run: { text: "text-run", fill: "bg-run/10", dot: "bg-run" },
+  run: { text: "text-run-text", fill: "bg-run/10", dot: "bg-run" },
   partial: { text: "text-partial", fill: "bg-partial/10", dot: "bg-partial" },
   met: { text: "text-met", fill: "bg-met/10", dot: "bg-met" },
   gap: { text: "text-gap", fill: "bg-gap/10", dot: "bg-gap" },
@@ -40,7 +44,8 @@ export default function Pill({ tone, label, className }: PillProps) {
     >
       {tone === "run" ? (
         <span className="relative flex h-2 w-2">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-pill bg-run opacity-75" />
+          {/* motion-reduce:animate-none — T5.8 reduced-motion audit. */}
+          <span className="absolute inline-flex h-full w-full animate-ping motion-reduce:animate-none rounded-pill bg-run opacity-75" />
           <span className="relative inline-flex h-2 w-2 rounded-pill bg-run" />
         </span>
       ) : (

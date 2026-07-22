@@ -55,7 +55,7 @@ export default function GateBanner({ run, onDecided }: { run: AgentRun; onDecide
         rows={2}
         className="mb-2"
       />
-      <div className="flex gap-2">
+      <div className="flex flex-wrap gap-2">
         <Button size="sm" loading={submitting === "approve"} disabled={!!submitting} onClick={() => decide("approve")}>
           Approve
         </Button>

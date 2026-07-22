@@ -24,7 +24,8 @@ export default function RunIndicator() {
       <Popover.Trigger asChild>
         <button className="flex items-center gap-2 rounded-pill border border-border bg-surface-2 px-3 py-1 text-xs text-text-dim hover:border-border-strong">
           <span className="relative flex h-2 w-2">
-            <span className="absolute inline-flex h-full w-full animate-ping rounded-pill bg-run opacity-75" />
+            {/* motion-reduce:animate-none — T5.8 reduced-motion audit. */}
+            <span className="absolute inline-flex h-full w-full animate-ping motion-reduce:animate-none rounded-pill bg-run opacity-75" />
             <span className="relative inline-flex h-2 w-2 rounded-pill bg-run" />
           </span>
           <span className="font-mono">

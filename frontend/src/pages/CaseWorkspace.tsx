@@ -83,13 +83,17 @@ export default function CaseWorkspace() {
         {gateRun && <GateBanner run={gateRun} onDecided={refreshAfterGate} />}
 
         <TabsPrimitive.Root defaultValue="Overview">
-          <TabsPrimitive.List className="mb-6 flex gap-1 border-b border-border">
+          {/* overflow-x-auto (T5.8 tablet check): 6 tabs with labels + count badges can get
+              tight below ~1024px inside this max-w-5xl container — scrolls instead of wrapping
+              or visually breaking if it doesn't fit. shrink-0 on each trigger keeps tab widths
+              stable rather than letting flex squeeze them illegibly. */}
+          <TabsPrimitive.List className="mb-6 flex gap-1 overflow-x-auto border-b border-border">
             {TABS.map((t) => (
               <TabsPrimitive.Trigger
                 key={t}
                 value={t}
                 className={[
-                  "flex items-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-sm text-text-dim",
+                  "flex shrink-0 items-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-sm text-text-dim",
                   "transition-colors duration-hover hover:text-text",
                   "data-[state=active]:border-accent data-[state=active]:text-text",
                 ].join(" ")}

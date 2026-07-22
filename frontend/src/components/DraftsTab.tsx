@@ -151,7 +151,7 @@ function SectionReviewer({ section, caseId }: { section: DraftSection; caseId: s
         </div>
       )}
 
-      <div className="mt-4 flex gap-2 border-t border-border pt-4">
+      <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
         <Button size="sm" loading={pending === "approve"} disabled={!!pending} onClick={() => review("approve")}>
           Approve
         </Button>
@@ -218,7 +218,13 @@ export default function DraftsTab({ caseId }: { caseId: string }) {
         </div>
       )}
 
-      <div className="flex gap-6">
+      {/* overflow-x-auto (T5.8 tablet check): the two fixed-width columns (nav 192px + aside
+          224px) plus gaps leave a genuinely tight center pane below ~1024px — this is a hard
+          three-pane-on-tablet layout problem the redesign plan doesn't solve either; scrolling
+          horizontally as a floor is safer than letting the center pane get crushed or the fixed
+          columns force page-level overflow. A real narrow-viewport pass (e.g. collapsing the
+          source panel below the body under `lg:`) is a follow-up, not solved here. */}
+      <div className="flex gap-6 overflow-x-auto">
         <nav className="w-48 shrink-0 space-y-1">
           {sortedSections.map((s) => (
             <SectionNavItem

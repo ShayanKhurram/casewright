@@ -1,8 +1,13 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 
 /** Shared shimmer surface treatment — the `animate-shimmer` keyframe (1.6s 0.03→0.07→0.03
- * opacity sweep) is defined in tailwind.config.js from T5.1; we just apply it. */
-const SHIMMER = "animate-shimmer bg-surface-2";
+ * opacity sweep) is defined in tailwind.config.js from T5.1; we just apply it.
+ * `motion-reduce:animate-none` (T5.8 reduced-motion audit): shimmer's 1.6s duration is
+ * hardcoded in the keyframe definition, not wired through a --duration token like
+ * `reveal-up` is, so it doesn't inherit tokens.css's reduced-motion zeroing automatically —
+ * Tailwind's built-in `motion-reduce:` variant (no plugin needed) freezes it instead. Skeletons
+ * appear on every loading screen in this app, so this is a broad-impact fix. */
+const SHIMMER = "animate-shimmer motion-reduce:animate-none bg-surface-2";
 
 // ---------------------------------------------------------------------------
 // Visual primitives

@@ -33,7 +33,8 @@ export default function Select({
           "inline-flex w-full items-center justify-between gap-2 rounded-control border border-border",
           "bg-surface px-3 py-2 text-sm text-text",
           "transition-colors duration-hover hover:border-border-strong",
-          "focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-border-strong",
+          // ring-accent-text/70, not ring-accent/40 — see Button.tsx's comment (T5.8 WCAG audit).
+          "focus:outline-none focus:ring-2 focus:ring-accent-text/70 focus:border-border-strong",
           "data-[placeholder]:text-text-faint",
           "disabled:cursor-not-allowed disabled:opacity-50",
           className ?? "",
@@ -60,9 +61,13 @@ export default function Select({
                 key={option.value}
                 value={option.value}
                 className={[
-                  "relative flex cursor-pointer select-none items-center rounded-control py-1.5 pl-8 pr-2",
+                  "relative flex cursor-pointer select-none items-center rounded-control border-l-2 border-l-transparent py-1.5 pl-8 pr-2",
                   "text-sm text-text outline-none",
-                  "data-[highlighted]:bg-surface data-[highlighted]:text-text",
+                  // The bg-surface tint alone measured ~1.1:1 against the surface-2 content —
+                  // effectively invisible (T5.8 audit). A left-border rail (matching this app's
+                  // established state-indication language for gates/verdicts) is the actual
+                  // WCAG-adequate highlight; accent-text as a border clears 3:1 comfortably.
+                  "data-[highlighted]:border-l-accent-text data-[highlighted]:bg-surface data-[highlighted]:text-text",
                   "data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
                 ].join(" ")}
               >

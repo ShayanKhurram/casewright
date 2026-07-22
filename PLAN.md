@@ -401,6 +401,76 @@ system and ui-kit being right.
       browser/screenshot tool in this environment, so the actual visual render was never
       eyeballed — verified via build/type-check, live API contracts, and served-asset checks
       only.
-- [ ] T5.8 (Claude): accessibility pass (WCAG AA per §9 — reuse the contrast-audit method
+- [x] T5.8 (Claude): accessibility pass (WCAG AA per §9 — reuse the contrast-audit method
       from Phase 3's T3.4), reduced-motion verification (including the `DeadlineRing`
       `animate-pulse` gap flagged above), tablet responsive check, polish sweep.
+      · reviewed 2026-07-22. Computed exact WCAG contrast ratios (Python, sRGB relative
+      luminance formula — same rigor as T3.4, a calculator instead of arithmetic-by-hand) for
+      every real color pair actually used in the app, not a "looks fine" pass. **Six real
+      failures found and fixed**, all in `theme/tokens.css`:
+      1. `--text-faint` (#5b6b7f) failed even the 3:1 UI threshold on `surface-2` (2.95:1) and
+         missed 4.5:1 text-contrast everywhere, despite being real body text (timestamps,
+         labels) at ~30 call sites — brightened to #7c8ba1 (clears 4.5:1+ on bg/surface/
+         surface-2; decorative icon uses unaffected, no requirement there).
+      2. `--gap` (#e05252) as text (error messages, "Unverified" labels — ~15 of its 16 call
+         sites) failed 4.5:1 on `surface-2` (4.21:1) and was uncomfortably thin elsewhere
+         (4.59:1) — brightened to #ea7878 (6.7/6.2/5.7:1 on bg/surface/surface-2); borders/
+         rails/fills (3:1 threshold) unaffected functionally.
+      3. `--accent-hover` (#d25562) as Button's primary-hover fill with white text only reached
+         4.03:1 (needs 4.5) — the "hover lift" being *lighter* was the wrong direction (white
+         text needs a *darker* bg for contrast); darkened to #a8394a (6.27:1 white-on-it).
+      4. New `--gap-fill` (#b83a3a): the destructive Button's white-on-`--gap` fill was 3.82:1
+         — conflicts directly with fix #2 (text needs `--gap` brighter, a button fill needs it
+         darker), so this needed its own token rather than reusing either direction.
+      5. New `--accent-text` (#e0687a): `--accent` as link text (EvidenceTab's "Open original")
+         was 3.47–3.75:1 — brand `--accent` is too close in luminance to the dark surfaces to
+         work as text at all; kept `--accent` unchanged for its many non-text uses (buttons,
+         rails, active states) rather than shift the whole brand color.
+      6. New `--run-text` (#84a8f5): `Pill`'s "run" tone renders `text-run` on its own
+         `bg-run/10` tint — that tint lightens the effective background just enough that plain
+         `--run` (4.97:1 on bare surface-2) drops to 4.31:1 against the actual composited
+         background. Not caught by checking `--run` against bare surfaces; only found by
+         computing contrast against the *actual rendered* background.
+      **A more significant catch**: every focus ring in the app (`ring-accent/40` on Button/
+      Input/Select/Textarea) computed to ~1.5:1 against `surface`/`bg` — even `--accent` at
+      *full* opacity only reaches 3.75:1, so no reasonable alpha clears the 3:1 WCAG 1.4.11/
+      2.4.11 focus-indicator minimum. All four switched to `ring-accent-text/70` (3.24–3.37:1).
+      Also found Radix `Select`'s keyboard-highlighted item at `bg-surface` on a `bg-surface-2`
+      panel — 1.09:1, essentially invisible, and `data-highlighted` drives Radix's *keyboard*
+      arrow-navigation state, not just mouse hover, so this genuinely needed a fix (plain CSS
+      `:hover`-only affordances elsewhere in the app were left alone — hover contrast isn't a
+      WCAG requirement the way focus-equivalent state is): added a `border-l-2` accent-text
+      rail as the real indicator, matching the app's existing rail-based state language.
+      **Reduced motion**: found 6 decorative `animate-*` usages not wired through a
+      `--duration` token (so untouched by `tokens.css`'s reduced-motion zeroing) —
+      `animate-shimmer` (`Skeleton.tsx`, used by every loading state in the app),
+      `animate-pulse` (`DeadlineRing`'s urgent state, `UserMenu`'s loading avatar), and
+      `animate-ping` ×3 (`RunIndicator`, `Pill`'s run tone, `PipelineTracker`'s active node).
+      Fixed with Tailwind's built-in `motion-reduce:animate-none` variant (verified it actually
+      emits CSS before relying on it, same discipline as the T5.2 alpha-modifier lesson — no
+      plugin needed, native to Tailwind v3). `Button`'s loading spinner deliberately kept
+      un-reduced (state-communicating, not decorative, per WCAG 2.3.3) — documented in-code.
+      `animate-reveal-up` was already correctly token-driven from T5.6, no fix needed.
+      **Tablet check**: `CaseWorkspace`'s 6-tab `TabsList` and the `DraftsTab` three-pane both
+      have fixed/tight widths that get genuinely cramped below ~1024px — added `overflow-x-auto`
+      as a safety net to both (scrolling beats silent breakage), `shrink-0` on tab triggers.
+      `EvidenceTab`/`RFETab` data tables wrapped in `overflow-x-auto`. Three button rows
+      (`GateBanner`, `StrategyMemo`, `DraftsTab`'s reviewer) gained `flex-wrap`. Confirmed
+      Dashboard's card grid and Login's split panel already handle tablet correctly via
+      existing breakpoints (`sm:`/`lg:`) — no change needed. The Drafts three-pane's tight fit
+      at tablet width is disclosed as a known limitation, not silently "fixed" — a real
+      collapsing-narrow-layout redesign (e.g. source panel moving below the body under `lg:`)
+      is a follow-up, not attempted here without visual verification available.
+      **Keyboard focus**: confirmed (grepping every `outline-none`) that no interactive element
+      strips the default/custom focus indicator without a replacement, matching T3.4's finding
+      for this app.
+      **Cleanup**: removed the legacy light-theme Tailwind tokens (`ink`/`paper`/`slate`/
+      `hairline`/`oxblood`/`verdict-*`) from `tailwind.config.js` — the comment left from T5.1
+      said "remove in T5.8"; confirmed via repo-wide grep first that nothing references them.
+      Verified throughout: `npm run build`/`npm test` (14/14) clean after every batch of
+      changes, hex grep clean, a live docker rebuild + login through nginx confirming the
+      deployed CSS actually contains the new token values (not a stale image — the exact
+      mistake caught during the T5.3 round). No browser tool in this environment, so none of
+      this was visually confirmed by eye — the ratios are computed against the real rendered
+      color values, which is the rigorous half of the audit, but an actual look (human or a
+      future screenshot-capable session) is still warranted before pilot use.

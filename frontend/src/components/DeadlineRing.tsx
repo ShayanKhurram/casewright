@@ -15,9 +15,8 @@ export default function DeadlineRing({ deadline }: { deadline: string | null }) 
   const offset = circumference * (1 - fraction);
 
   // Color by remaining time per redesign plan §5: >30d dim, 14-30d partial, <14d gap (with a
-  // slow pulse via Tailwind's built-in `animate-pulse`). Uses Tailwind's own fixed-duration
-  // keyframe, not a token duration var, so it does NOT yet respect prefers-reduced-motion —
-  // flagged for T5.8's reduced-motion pass rather than solved ad hoc here.
+  // slow pulse via Tailwind's built-in `animate-pulse`, frozen under `motion-reduce:animate-none`
+  // — T5.8 reduced-motion audit; resolves the gap this file used to flag).
   const stroke = days < 0 || days <= 14 ? "stroke-gap" : days <= 30 ? "stroke-partial" : "stroke-text-dim";
   const urgent = days < 0 || days <= 14;
 
@@ -25,7 +24,10 @@ export default function DeadlineRing({ deadline }: { deadline: string | null }) 
 
   return (
     <div
-      className={["inline-flex items-center justify-center", urgent ? "animate-pulse" : ""].join(" ")}
+      className={[
+        "inline-flex items-center justify-center",
+        urgent ? "animate-pulse motion-reduce:animate-none" : "",
+      ].join(" ")}
       role="img"
       aria-label={`RFE response ${label}`}
     >

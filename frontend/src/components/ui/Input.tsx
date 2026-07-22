@@ -15,7 +15,9 @@ const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
         "w-full rounded-control border border-border bg-surface px-3 py-2 text-sm text-text",
         "placeholder:text-text-faint",
         "transition-colors duration-hover",
-        "focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-border-strong",
+        // ring-accent-text/70, not ring-accent/40 — see Button.tsx's comment (T5.8 WCAG audit):
+        // --accent can't reach the 3:1 focus-indicator minimum at a translucent alpha.
+        "focus:outline-none focus:ring-2 focus:ring-accent-text/70 focus:border-border-strong",
         "disabled:cursor-not-allowed disabled:opacity-50",
         className ?? "",
       ].join(" ")}

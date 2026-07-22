@@ -28,7 +28,7 @@ export default function UserMenu() {
   }
 
   if (!user) {
-    return <div className="h-8 w-8 animate-pulse rounded-full bg-surface-2" />;
+    return <div className="h-8 w-8 animate-pulse motion-reduce:animate-none rounded-full bg-surface-2" />;
   }
 
   return (

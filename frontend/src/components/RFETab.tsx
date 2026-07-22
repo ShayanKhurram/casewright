@@ -132,25 +132,27 @@ export default function RFETab({ caseId }: { caseId: string }) {
       ))}
 
       {runs && runs.length > 0 && (
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-border text-left font-mono text-xs uppercase text-text-faint">
-              <th className="py-1.5">Run</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {runs.map((r) => (
-              <tr key={r.id} className="border-b border-border">
-                <td className="py-1.5 font-mono text-xs text-text-dim">{r.id.slice(0, 8)}</td>
-                <td>
-                  <StatusPill status={r.status} />
-                  {r.error && <span className="ml-2 text-xs text-gap">{r.error}</span>}
-                </td>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left font-mono text-xs uppercase text-text-faint">
+                <th className="py-1.5">Run</th>
+                <th>Status</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {runs.map((r) => (
+                <tr key={r.id} className="border-b border-border">
+                  <td className="py-1.5 font-mono text-xs text-text-dim">{r.id.slice(0, 8)}</td>
+                  <td>
+                    <StatusPill status={r.status} />
+                    {r.error && <span className="ml-2 text-xs text-gap">{r.error}</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

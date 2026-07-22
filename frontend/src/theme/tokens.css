@@ -11,13 +11,40 @@
   --hairline-strong: rgba(255, 255, 255, 0.14);
   --text: #e8ecf2;
   --text-dim: #94a3b8;
-  --text-faint: #5b6b7f;
+  /* Brightened from the original #5b6b7f (T5.8 WCAG audit): as body text (mono timestamps,
+     labels), the original failed even the 3:1 UI threshold on --surface-2 (2.95:1) and missed
+     4.5:1 text-contrast everywhere. New value clears 4.5:1 against bg/surface/surface-2. Its
+     many decorative uses (icon colors, hollow-ring strokes) have no contrast requirement and
+     are unaffected. */
+  --text-faint: #7c8ba1;
   --accent: #c1424f;
-  --accent-hover: #d25562;
+  /* Darkened from the original #d25562 (T5.8 audit): its only real usage is Button's primary
+     hover fill with white text, which needs 4.5:1 — the original (lighter, meant as a "lift")
+     only reached 4.03:1. Darkening instead of lightening still reads as a distinct hover state
+     and fixes the contrast; see --accent-text below for the separate "accent as link text"
+     case, which needs the opposite (lighter) direction and would conflict if merged with this
+     token. */
+  --accent-hover: #a8394a;
   --met: #3fb47c;
   --partial: #d9a03e;
-  --gap: #e05252;
+  /* Brightened from the original #e05252 (T5.8 audit): as text (error messages, "Unverified"
+     labels, validation text — the overwhelming majority of its real usages), the original
+     failed 4.5:1 on --surface-2 (4.21:1) and only just cleared it elsewhere (4.59:1 on
+     surface, uncomfortably thin). Borders/rails/dots (3:1 threshold) and the /10 pill-fill
+     tint are unaffected by the brightening — still comfortably distinct as "the app's red." */
+  --gap: #ea7878;
   --run: #5b8def;
+
+  /* WCAG-driven text-safe variants (T5.8 audit) for tokens whose base value is tuned for
+     borders/fills/branding (3:1 threshold) but fails 4.5:1 when rendered as actual text in
+     some contexts — same pattern as --gap/--accent-hover above, added as separate tokens
+     instead of changing the base value because the base value is still needed unchanged
+     elsewhere (see each token's call sites). */
+  --gap-fill: #b83a3a; /* destructive Button background (needs white text >= 4.5:1) */
+  --accent-text: #e0687a; /* accent rendered as link/text (e.g. EvidenceTab's "Open original") */
+  --run-text: #84a8f5; /* Pill's "run" tone label text, which sits on its own bg-run/10 tint —
+    the tint itself lightens the effective background just enough that the base --run (4.97:1
+    on plain surface-2) drops to 4.31:1 against the tinted fill; this variant clears both. */
 
   /* RGB channel triples of the colors above, for Tailwind's `bg-accent/40`-style opacity
      modifiers: Tailwind can only vary alpha on a color it can decompose into channels, and a
@@ -29,13 +56,16 @@
   --surface-2-rgb: 24 34 46;
   --text-rgb: 232 236 242;
   --text-dim-rgb: 148 163 184;
-  --text-faint-rgb: 91 107 127;
+  --text-faint-rgb: 124 139 161;
   --accent-rgb: 193 66 79;
-  --accent-hover-rgb: 210 85 98;
+  --accent-hover-rgb: 168 57 74;
   --met-rgb: 63 180 124;
   --partial-rgb: 217 160 62;
-  --gap-rgb: 224 82 82;
+  --gap-rgb: 234 120 120;
   --run-rgb: 91 141 239;
+  --gap-fill-rgb: 184 58 58;
+  --accent-text-rgb: 224 104 122;
+  --run-text-rgb: 132 168 245;
 
   /* Shape */
   --radius-card: 8px;

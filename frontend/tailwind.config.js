@@ -4,30 +4,18 @@ export default {
   theme: {
     extend: {
       colors: {
-        // --- Legacy light-theme tokens (casewright-implementation-plan.md §9) ---
-        // Kept in place, untouched, until every screen that still uses them is re-skinned
-        // per casewright-ui-redesign-plan.md's screen-at-a-time migration (§10/§11). Do not
-        // delete until Phase 5 (T5.5–T5.7) has migrated every consumer — remove in T5.8.
-        ink: "#16233A",
-        paper: "#FBFBF9",
-        slate: "#5B6B7F",
-        hairline: "#E3E7EC",
-        oxblood: "#7A1F2B",
-        "verdict-met": "#1E7A4F",
-        "verdict-partial": "#B0770A",
-        "verdict-partial-text": "#8F6208",
-        "verdict-gap": "#B3372F",
-
         // --- Dark token system (casewright-ui-redesign-plan.md §3) ---
-        // "border"/"border-strong" map to the plan's --hairline/--hairline-strong CSS vars —
-        // renamed only at the Tailwind-class level to avoid colliding with the legacy
-        // "hairline" key above (which stays light for as-yet-unmigrated screens). The CSS
-        // variables themselves are named --hairline/--hairline-strong exactly as spec'd.
+        // "border"/"border-strong" map to the plan's --hairline/--hairline-strong CSS vars.
         // rgb(var(--x-rgb) / <alpha-value>) (not a bare `var(--x)` hex string) so that Tailwind
         // opacity modifiers (`bg-accent/40`, `ring-run/10`, ...) actually emit CSS — Tailwind
         // can only vary alpha on a color it can decompose into channels. `border`/`border-strong`
         // are left as bare hex/rgba vars since --hairline is already a fixed-alpha rgba and
         // isn't used with a modifier.
+        //
+        // The legacy light-theme tokens (ink/paper/slate/hairline/oxblood/verdict-*) that lived
+        // here through the T5.1–T5.7 rollout were removed in T5.8, once a repo-wide grep for
+        // every one of them (across src/pages and src/components) came back empty — every
+        // screen is now on the dark system, so there was nothing left for them to protect.
         bg: "rgb(var(--bg-rgb) / <alpha-value>)",
         surface: "rgb(var(--surface-rgb) / <alpha-value>)",
         "surface-2": "rgb(var(--surface-2-rgb) / <alpha-value>)",
@@ -38,10 +26,15 @@ export default {
         "text-faint": "rgb(var(--text-faint-rgb) / <alpha-value>)",
         accent: "rgb(var(--accent-rgb) / <alpha-value>)",
         "accent-hover": "rgb(var(--accent-hover-rgb) / <alpha-value>)",
+        // WCAG-safe variants added in T5.8's contrast audit — see tokens.css for the exact
+        // ratios each one fixes.
+        "accent-text": "rgb(var(--accent-text-rgb) / <alpha-value>)",
         met: "rgb(var(--met-rgb) / <alpha-value>)",
         partial: "rgb(var(--partial-rgb) / <alpha-value>)",
         gap: "rgb(var(--gap-rgb) / <alpha-value>)",
+        "gap-fill": "rgb(var(--gap-fill-rgb) / <alpha-value>)",
         run: "rgb(var(--run-rgb) / <alpha-value>)",
+        "run-text": "rgb(var(--run-text-rgb) / <alpha-value>)",
       },
       fontFamily: {
         display: ["Source Serif 4", "serif"],

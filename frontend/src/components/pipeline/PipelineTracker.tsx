@@ -157,7 +157,10 @@ export default function PipelineTracker({ graph, status, progress }: PipelineTra
           case "active":
             marker = (
               <span className="relative flex h-5 w-5 items-center justify-center">
-                <span className="absolute inline-flex h-3.5 w-3.5 animate-ping rounded-pill bg-run opacity-75 [animation-duration:1.8s]" />
+                {/* motion-reduce:animate-none (T5.8 audit): the ping here has an arbitrary
+                    1.8s duration override, not a --duration token, so it needs the explicit
+                    variant to freeze under prefers-reduced-motion. */}
+                <span className="absolute inline-flex h-3.5 w-3.5 animate-ping motion-reduce:animate-none rounded-pill bg-run opacity-75 [animation-duration:1.8s]" />
                 <span className="relative inline-flex h-2.5 w-2.5 rounded-pill bg-run" />
               </span>
             );

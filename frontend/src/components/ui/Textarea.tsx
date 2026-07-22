@@ -14,7 +14,8 @@ const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function Textare
         "w-full rounded-control border border-border bg-surface px-3 py-2 text-sm text-text",
         "placeholder:text-text-faint",
         "transition-colors duration-hover",
-        "focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-border-strong",
+        // ring-accent-text/70, not ring-accent/40 — see Button.tsx's comment (T5.8 WCAG audit).
+        "focus:outline-none focus:ring-2 focus:ring-accent-text/70 focus:border-border-strong",
         "disabled:cursor-not-allowed disabled:opacity-50",
         className ?? "",
       ].join(" ")}

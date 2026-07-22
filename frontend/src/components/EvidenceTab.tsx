@@ -85,7 +85,11 @@ function SourcePanel({ caseId, document, onClose }: { caseId: string; document: 
                   href={urlData.url}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-6 inline-flex items-center gap-1.5 text-sm text-accent hover:text-accent-hover"
+                  // text-accent-text, not text-accent: as link text on a dark surface, plain
+                  // --accent only reaches 3.47:1 (T5.8 audit) — fails the 4.5:1 text minimum.
+                  // Hover uses opacity, not --accent-hover: that token is now darkened
+                  // specifically for button fills, the wrong direction for text-on-dark.
+                  className="mt-6 inline-flex items-center gap-1.5 text-sm text-accent-text transition-opacity duration-hover hover:opacity-80"
                 >
                   Open original <ExternalLink size={14} />
                 </a>
@@ -156,6 +160,7 @@ export default function EvidenceTab({ caseId }: { caseId: string }) {
         }
       >
         {documents && documents.length > 0 ? (
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border text-left font-mono text-xs uppercase text-text-faint">
@@ -188,6 +193,7 @@ export default function EvidenceTab({ caseId }: { caseId: string }) {
               ))}
             </tbody>
           </table>
+          </div>
         ) : (
           <p className="text-sm text-text-dim">No documents yet — upload the beneficiary's CV, awards, and letters to begin.</p>
         )}
