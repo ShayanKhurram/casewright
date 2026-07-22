@@ -31,6 +31,18 @@ class AgentRun(Base, UUIDPKMixin, TenantMixin, TimestampMixin):
     current_gate: Mapped[str | None] = mapped_column(String(50), nullable=True)
     gate_payload: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     error: Mapped[str | None] = mapped_column(nullable=True)
+    progress: Mapped[dict] = mapped_column(
+        JSONB,
+        nullable=False,
+        default=dict,
+        doc=(
+            "Live graph-execution progress written by app/agents/runner.py as it streams node "
+            "start/finish events (redesign plan §6's PipelineTracker): "
+            "{current_node, completed_nodes: [...], node_timestamps: {node: {started_at, "
+            "finished_at}}, fan_out: {node: {done, total}}}. Graph topology itself is a frontend "
+            "constant per graph type, not stored here — this column is only the dynamic state."
+        ),
+    )
 
 
 class AuditLog(Base, UUIDPKMixin, TenantMixin):

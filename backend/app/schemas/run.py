@@ -19,6 +19,7 @@ class RunOut(BaseModel):
     current_gate: str | None
     gate_payload: dict
     error: str | None
+    progress: dict
     created_at: datetime
     updated_at: datetime
 

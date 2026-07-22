@@ -40,6 +40,7 @@ async def list_active_runs(
             current_gate=run.current_gate,
             gate_payload=run.gate_payload,
             error=run.error,
+            progress=run.progress,
             created_at=run.created_at,
             updated_at=run.updated_at,
             beneficiary_name=beneficiary_name,

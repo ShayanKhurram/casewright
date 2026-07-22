@@ -300,10 +300,33 @@ system and ui-kit being right.
       `tailwind.config.js` colors to `rgb(var(--x-rgb) / <alpha-value>)`.
       Minor accepted deviation: brief said `bg-met/12`, code uses `bg-met/10` (matches the
       brief's only concrete example; ~2% alpha, visually imperceptible, not worth a re-guide).
-- [ ] T5.3 (Claude): backend progress tracking — extend `agent_runs` with a `progress` JSONB
+- [x] T5.3 (Claude): backend progress tracking — extend `agent_runs` with a `progress` JSONB
       column (current_node, per-node timestamps, fan-out counts), have the runner/graph nodes
       write to it, add it to `RunOut`. Kept in-house: touches the runner/graph plumbing that's
       architecturally central, same reasoning as the petition graph's fan-out.
+      · reviewed 2026-07-22 @ (pending commit). Migration `0da14565c97a` adds
+      `agent_runs.progress` (JSONB, default `{}`). `runner.py`'s `_drive`/`_resume` switched
+      from `graph.ainvoke(...)` to `graph.astream(..., stream_mode="debug")` — empirically
+      verified against a throwaway graph first (langgraph 1.2.9 emits one `"task"`/
+      `"task_result"` debug event per node execution, including one pair *per parallel Send
+      branch* for fan-out nodes, which is what makes a live n/m counter possible; `_sync_status`
+      is untouched and still runs after the stream ends). New `_stream_with_progress` writes
+      `{current_node, completed_nodes, node_timestamps: {node: {started_at, finished_at}},
+      fan_out: {node: {done, total}}}` to the DB after every node event. A gate node's
+      `task_result` with non-empty `interrupts` is deliberately excluded from `completed_nodes`
+      (it paused there for human review, it didn't finish) — `current_node` staying on the gate
+      name is what a frontend tracker uses to know "waiting here." Graph topology itself is not
+      stored (a frontend constant per graph type); this column is purely the dynamic state.
+      Acceptance verified for real, not just by mocked tests: ruff/mypy clean, all 34 backend
+      tests pass **against a rebuilt image** (caught that the first pytest pass was silently
+      running the stale pre-change image — `backend` isn't bind-mounted, so `docker compose
+      build backend` + recreate was required before the test run was meaningful), and a live
+      petition run against real Ollama Cloud calls (O-1A, empty case) polled through
+      `GET /cases/{id}/runs`: watched `assess_criterion`'s fan-out counter go 3/8 → 4/8 → 6/8 →
+      8/8 in real time, `current_node` progress through
+      intake → profile → assess_criterion → strategy → strategy_gate correctly, and the run
+      land on `status=waiting_review`/`current_gate=strategy_review` with `strategy_gate`
+      correctly absent from `completed_nodes`.
 - [ ] T5.4 (pi): loading system — skeleton primitives (`SkeletonLine`/`Block`/`Pill`/`Row`,
       shimmer keyframe) + per-screen skeleton layouts + `PipelineTracker` (topology stepper
       consuming T5.3's progress field) + progressive-reveal staggering for criterion

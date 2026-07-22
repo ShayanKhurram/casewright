@@ -379,66 +379,8 @@ Tests: `cd backend && pytest` (needs a reachable Postgres — `docker compose up
     revisit if a way to capture a real screenshot becomes available before T5.8's final polish
     pass.
 
-## Known Issues / Open TODOs
-
-All four plan phases now have code-level completeness (see `PLAN.md`), and both major
-verification gaps that stood open for most of 2026-07-22 are now closed: the Docker Compose
-build pipeline works (root cause fixed — see that day's timeline), and both graphs have run
-live against a real model, not just mocked ones. What's left below is smaller and more local.
-
-- **RESOLVED 2026-07-22: Docker Compose build pipeline.** Root cause was a missing
-  `.dockerignore` in `backend/` and `frontend/` — every build sent `backend/.venv` (17,036
-  files) and `frontend/node_modules` as build context, which looked exactly like a wedged
-  daemon from the outside. Fixed; builds now take ~1 minute for the full stack. Phase 3's T3.5
-  (attorney runs a case end-to-end through the UI) is now unblocked and worth actually doing.
-- **RESOLVED 2026-07-22: both graphs verified live against a real model** (Ollama Cloud,
-  glm-5.2/nemotron-3-nano). RFE: full workflow end-to-end including finalize. Petition: fan-out
-  over all 10 criteria, strategy synthesis, and drafting all confirmed working; verification
-  confirmed working via direct invocation after the one full continuous run hit a retry-
-  exhaustion failure on its fact-check call (documented model-reliability limit on long
-  prompts, not a code defect). The golden-case harness has still only run against its shipped
-  synthetic fixture, not a real firm case — that's a real-data problem, not a code one.
-- `audit_log` immutability relies on a trigger rather than a separate non-owner DB role; revisit
-  if a compliance review specifically wants privilege-based (not trigger-based) enforcement.
-- Frontend accessibility: WCAG AA contrast has been audited and fixed for the verdict palette
-  (see 2026-07-22 timeline). Not yet done: a systematic keyboard-navigation walkthrough (only
-  confirmed that no component strips the default focus outline — that's a floor, not a
-  deliberate pass) and real tablet-viewport testing (button groups use `flex-wrap`, but no
-  breakpoint-specific layout work exists anywhere in the app yet).
-- `call_structured`'s "model skipped the tool call" retry path (added after the live RFE run —
-  see timeline) has only been observed empirically against `glm-5.2` on `DraftedSection`'s
-  nested schema. Worth watching whether `MAX_ATTEMPTS=3` is enough headroom as more of the app
-  gets exercised against real models, or whether it needs to go higher / the schema needs
-  flattening for better compliance.
-- Document upload doesn't auto-classify `kind` — the uploader picks it from a dropdown, for both
-  workflows. The plan frames per-document classification as an intake-node (LLM) responsibility;
-  Phase 2's `intake_node` extracts facts but does not reclassify `kind` after upload. Revisit if
-  auto-classification turns out to matter in practice.
-- `knowledge_chunks` embeddings use the hash fallback in this environment (no `VOYAGE_API_KEY`)
-  — deterministic but not semantically meaningful, so retrieval quality has not been evaluated,
-  only retrieval *plumbing* (the query runs, returns rows, respects tenant/kind/criterion
-  filters). This affects both graphs' retrieval-grounded nodes equally.
-- Petition drafting (`drafting_node`) versions the whole `petition_letter` draft on every
-  redraft (same pattern as RFE), but unlike RFE, a petition revision loop restarts from
-  `strategy` (not just `drafting`) when `strategy_gate` sends `revise` — meaning
-  `criteria_to_argue` can change between draft versions. Not a bug (each redraft correctly
-  reflects the latest strategy), but worth knowing: draft version N and N+1 aren't necessarily
-  arguing the same set of criteria.
-- Frontend test coverage exists now (vitest + RTL, 14 tests) but is intentionally narrow —
-  GateBanner, CriterionMatrix, StrategyMemo only, per the plan's "highest-value components"
-  scoping. Shell, OverviewTab, AgentRunTimeline, DeadlineRing, and every data-fetching tab
-  component (EvidenceTab, CriteriaTab, StrategyTab, DraftsTab, RFETab) have zero test coverage.
-- `scripts/report_metrics.py`'s gate-wait-time is a heuristic (delta between the
-  `agent_run.gate_decision` audit entry and whatever audit entry precedes it for that case),
-  not an exact measurement — `agent_runs` only keeps one `updated_at`, overwritten on every
-  status transition, so the true gate-open timestamp isn't separately recorded anywhere. Add a
-  dedicated `gate_opened_at` column if precision matters later. Run-duration-by-node and
-  tokens-per-case (also named in plan §11) aren't reported at all — neither is derivable from
-  the current schema; would need per-node timing and captured Anthropic response usage data.
-- The golden-case eval harness (`app/eval/`) has only ever been run against its own shipped
-  synthetic fixture with a mocked LLM. It has not been run against real firm data (none exists
-  in this environment) or a real model — both are prerequisites for it actually functioning as
-  the "sales pilot instrument" the plan describes.
+*(`## Known Issues / Open TODOs` moved to the end of this file — restoring newest-last order
+after the T5.2 pi-drift incident below appended past it.)*
 
 ### 2026-07-22 (later) — T5.2 ui-kit primitives (pi-built, Claude-reviewed)
 
@@ -522,3 +464,111 @@ live against a real model, not just mocked ones. What's left below is smaller an
   **Fix applied**: future pi invocations in this project must use the absolute path to
   `pi-role.md`, not the CLAUDE.md-documented relative one, until/unless a copy is added at
   `imi_law_agent/.claude/skills/pi-build/pi-role.md`.
+
+### 2026-07-22 (later still) — T5.3 backend progress tracking (Claude, in-house)
+
+- Built directly (not delegated) per its own PLAN.md scoping: this touches the runner/graph
+  plumbing that's architecturally central, same reasoning as the petition graph's fan-out.
+- `agent_runs` gained a `progress` JSONB column (migration `0da14565c97a`). Before writing the
+  runner change, empirically verified LangGraph 1.2.9's streaming behavior against a disposable
+  two-node graph and a disposable fan-out+interrupt graph (rather than assuming from memory):
+  `stream_mode="debug"` emits one `{"type": "task", ...}` / `{"type": "task_result", ...}` pair
+  per node *execution* — critically, for a `Send`-fan-out node, each parallel branch gets its
+  own pair, so counting `task_result` events for that node name is a correct live n/m counter.
+  A gate node's `task_result` carries a populated `interrupts` list instead of ending cleanly.
+- `runner.py`'s `_drive`/`_resume` switched from `graph.ainvoke(...)` to a new
+  `_stream_with_progress()` that iterates `graph.astream(..., stream_mode="debug")` and writes
+  `agent_runs.progress` to the DB after every node event (`current_node`, `completed_nodes`,
+  per-node `started_at`/`finished_at`, and a `fan_out: {node: {done, total}}` map for
+  `assess_criterion`). Design choices: `started_at` is overwritten (not `setdefault`) on each
+  fresh `"task"` event so a revision-loop re-entry resets the elapsed-time baseline instead of
+  accumulating across rounds, and that node is dropped from `completed_nodes` when it restarts;
+  a gate's `task_result` with non-empty `interrupts` is excluded from `completed_nodes` (it
+  paused, it didn't finish) so `current_node` sitting on the gate name is the frontend's signal
+  for "waiting here." `_sync_status` (gate/status bookkeeping after the stream ends) is
+  untouched. Graph topology (node order, which nodes are gates) is deliberately NOT stored here
+  — it's a frontend constant per graph type; this column is only the dynamic state.
+- **Process discipline callback** (see the T5.2 incident just above): re-ran the full test suite
+  and caught that the first pytest pass was meaningless — `docker compose exec backend pytest`
+  was running against the container's last-built image, and `backend` isn't bind-mounted, so
+  none of this round's code was actually loaded. Rebuilt (`docker compose build backend` +
+  recreate) before the test run counted for anything. A reminder that "tests pass" is only
+  proof of something if you've confirmed the code under test is actually the code you wrote.
+- Verified for real: ruff/mypy clean, all 34 backend tests pass against the rebuilt image
+  (including the mocked-LLM `test_petition_graph.py`/`test_rfe_graph.py` graph-mechanics
+  suites, unaffected by the `ainvoke`→`astream` swap), and — going beyond the mocked tests — a
+  live petition run against real Ollama Cloud (O-1A category, deliberately empty case) polled
+  through `GET /cases/{id}/runs` every ~6s: watched `assess_criterion`'s fan-out counter
+  genuinely increment 3/8 → 4/8 → 6/8 → 8/8 in real time as separate parallel LLM calls
+  completed, `current_node` move through
+  intake → profile → assess_criterion → strategy → strategy_gate correctly, and the run land on
+  `status=waiting_review`/`current_gate=strategy_review` with `strategy_gate` correctly absent
+  from `completed_nodes`. (The model's actual output was also correct on the merits — an empty
+  case correctly assessed all 8 criteria "absent" and recommended against filing, unprompted.)
+
+## Known Issues / Open TODOs
+
+All four plan phases now have code-level completeness (see `PLAN.md`), and both major
+verification gaps that stood open for most of 2026-07-22 are now closed: the Docker Compose
+build pipeline works (root cause fixed — see that day's timeline), and both graphs have run
+live against a real model, not just mocked ones. What's left below is smaller and more local.
+
+- **RESOLVED 2026-07-22: Docker Compose build pipeline.** Root cause was a missing
+  `.dockerignore` in `backend/` and `frontend/` — every build sent `backend/.venv` (17,036
+  files) and `frontend/node_modules` as build context, which looked exactly like a wedged
+  daemon from the outside. Fixed; builds now take ~1 minute for the full stack. Phase 3's T3.5
+  (attorney runs a case end-to-end through the UI) is now unblocked and worth actually doing.
+- **RESOLVED 2026-07-22: both graphs verified live against a real model** (Ollama Cloud,
+  glm-5.2/nemotron-3-nano). RFE: full workflow end-to-end including finalize. Petition: fan-out
+  over all 10 criteria, strategy synthesis, and drafting all confirmed working; verification
+  confirmed working via direct invocation after the one full continuous run hit a retry-
+  exhaustion failure on its fact-check call (documented model-reliability limit on long
+  prompts, not a code defect). The golden-case harness has still only run against its shipped
+  synthetic fixture, not a real firm case — that's a real-data problem, not a code one.
+- `audit_log` immutability relies on a trigger rather than a separate non-owner DB role; revisit
+  if a compliance review specifically wants privilege-based (not trigger-based) enforcement.
+- Frontend accessibility: WCAG AA contrast has been audited and fixed for the verdict palette
+  (see 2026-07-22 timeline). Not yet done: a systematic keyboard-navigation walkthrough (only
+  confirmed that no component strips the default focus outline — that's a floor, not a
+  deliberate pass) and real tablet-viewport testing (button groups use `flex-wrap`, but no
+  breakpoint-specific layout work exists anywhere in the app yet).
+- `call_structured`'s "model skipped the tool call" retry path (added after the live RFE run —
+  see timeline) has only been observed empirically against `glm-5.2` on `DraftedSection`'s
+  nested schema. Worth watching whether `MAX_ATTEMPTS=3` is enough headroom as more of the app
+  gets exercised against real models, or whether it needs to go higher / the schema needs
+  flattening for better compliance.
+- Document upload doesn't auto-classify `kind` — the uploader picks it from a dropdown, for both
+  workflows. The plan frames per-document classification as an intake-node (LLM) responsibility;
+  Phase 2's `intake_node` extracts facts but does not reclassify `kind` after upload. Revisit if
+  auto-classification turns out to matter in practice.
+- `knowledge_chunks` embeddings use the hash fallback in this environment (no `VOYAGE_API_KEY`)
+  — deterministic but not semantically meaningful, so retrieval quality has not been evaluated,
+  only retrieval *plumbing* (the query runs, returns rows, respects tenant/kind/criterion
+  filters). This affects both graphs' retrieval-grounded nodes equally.
+- Petition drafting (`drafting_node`) versions the whole `petition_letter` draft on every
+  redraft (same pattern as RFE), but unlike RFE, a petition revision loop restarts from
+  `strategy` (not just `drafting`) when `strategy_gate` sends `revise` — meaning
+  `criteria_to_argue` can change between draft versions. Not a bug (each redraft correctly
+  reflects the latest strategy), but worth knowing: draft version N and N+1 aren't necessarily
+  arguing the same set of criteria.
+- Frontend test coverage exists now (vitest + RTL, 14 tests) but is intentionally narrow —
+  GateBanner, CriterionMatrix, StrategyMemo only, per the plan's "highest-value components"
+  scoping. Shell, OverviewTab, AgentRunTimeline, DeadlineRing, and every data-fetching tab
+  component (EvidenceTab, CriteriaTab, StrategyTab, DraftsTab, RFETab) have zero test coverage.
+- `scripts/report_metrics.py`'s gate-wait-time is a heuristic (delta between the
+  `agent_run.gate_decision` audit entry and whatever audit entry precedes it for that case),
+  not an exact measurement — `agent_runs` only keeps one `updated_at`, overwritten on every
+  status transition, so the true gate-open timestamp isn't separately recorded anywhere. Add a
+  dedicated `gate_opened_at` column if precision matters later. Run-duration-by-node and
+  tokens-per-case (also named in plan §11) aren't reported at all — neither is derivable from
+  the current schema; would need per-node timing and captured Anthropic response usage data.
+- The golden-case eval harness (`app/eval/`) has only ever been run against its own shipped
+  synthetic fixture with a mocked LLM. It has not been run against real firm data (none exists
+  in this environment) or a real model — both are prerequisites for it actually functioning as
+  the "sales pilot instrument" the plan describes.
+- `agent_runs.progress`'s `fan_out` total for `assess_criterion` is computed from the graph's
+  *initial* `start_run` input; a `resume_run`'s input is a bare `Command`, which can't supply
+  it. Not currently a bug (assess_criterion never re-executes after a resume in either graph's
+  topology), but if a future graph change ever routes back into a fan-out node after an
+  interrupt, `FAN_OUT_TOTALS` in `runner.py` will need a fallback (e.g. reading the total from
+  checkpointed state rather than raw input) to avoid a silently-missing/zero total.
