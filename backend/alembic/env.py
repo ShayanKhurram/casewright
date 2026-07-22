@@ -19,6 +19,16 @@ config.set_main_option("sqlalchemy.url", settings.database_url_sync)
 target_metadata = Base.metadata
 
 
+def include_object(object, name, type_, reflected, compare_to):
+    """LangGraph's AsyncPostgresSaver owns the checkpoint_* tables (created by
+    scripts/setup_checkpointer.py, not by our SQLAlchemy models) — exclude them from
+    autogenerate so a careless `alembic revision --autogenerate` never proposes dropping them
+    just because they're not in Base.metadata."""
+    if type_ == "table" and name is not None and name.startswith("checkpoint"):
+        return False
+    return True
+
+
 def run_migrations_offline() -> None:
     url = config.get_main_option("sqlalchemy.url")
     context.configure(
@@ -26,6 +36,8 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        compare_type=True,
+        include_object=include_object,
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -39,7 +51,12 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(
+            connection=connection,
+            target_metadata=target_metadata,
+            compare_type=True,
+            include_object=include_object,
+        )
         with context.begin_transaction():
             context.run_migrations()
 

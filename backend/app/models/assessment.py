@@ -37,7 +37,11 @@ class StrategyMemo(Base, UUIDPKMixin, TenantMixin, TimestampMixin):
         UUID(as_uuid=True), ForeignKey("cases.id", ondelete="CASCADE"), nullable=False, index=True
     )
     recommended_category: Mapped[str | None] = mapped_column(String(10), nullable=True)
-    viability: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    viability: Mapped[str | None] = mapped_column(nullable=True)
+    """Unbounded, not a short label — found live: the model gives a nuanced assessment
+    ("Moderate — viable for O-1A with evidence development; not yet ready for EB-1A without
+    closing gaps in X, Y, Z"), not a single word, and that's the right behavior for an
+    attorney-facing product. String(50) was a schema-design mistake, not a model problem."""
     criteria_to_argue: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     criteria_to_abandon: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
     evidence_gaps: Mapped[list] = mapped_column(JSONB, nullable=False, default=list)
