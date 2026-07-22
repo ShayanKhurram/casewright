@@ -2,6 +2,7 @@ import * as TabsPrimitive from "@radix-ui/react-tabs";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useParams, useSearchParams } from "react-router-dom";
 
+import CaseQAPanel from "../components/CaseQAPanel";
 import CriteriaTab from "../components/CriteriaTab";
 import DraftsTab from "../components/DraftsTab";
 import EvidenceTab from "../components/EvidenceTab";
@@ -13,7 +14,7 @@ import StrategyTab from "../components/StrategyTab";
 import { apiFetch } from "../lib/api";
 import { AgentRun, Case, CriterionAssessment, Document, Draft } from "../types";
 
-const TABS = ["Overview", "Evidence", "Criteria", "Strategy", "Drafts", "RFE"] as const;
+const TABS = ["Overview", "Evidence", "Criteria", "Strategy", "Drafts", "RFE", "Ask"] as const;
 
 /** Case Workspace shell (redesign plan §8): serif title + StatusPill + category, a lifted
  * GateBanner slot for any draft-review-shaped gate (petition's review_gate or RFE's
@@ -144,6 +145,9 @@ export default function CaseWorkspace() {
           </TabsPrimitive.Content>
           <TabsPrimitive.Content value="RFE">
             <RFETab caseId={caseId} />
+          </TabsPrimitive.Content>
+          <TabsPrimitive.Content value="Ask">
+            <CaseQAPanel caseId={caseId} />
           </TabsPrimitive.Content>
         </TabsPrimitive.Root>
       </div>

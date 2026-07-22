@@ -198,3 +198,17 @@ export interface StrategyMemo {
   attorney_decision: "approve" | "revise" | null;
   attorney_notes: string | null;
 }
+
+export interface QACitation {
+  fact_id: string;
+  document_id: string;
+  exhibit_label: string | null;
+  source_page: number | null;
+  source_quote: string | null;
+}
+
+export interface CaseQAResponse {
+  answer: string;
+  grounded: boolean;
+  citations: QACitation[];
+}

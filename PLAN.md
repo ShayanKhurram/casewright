@@ -764,7 +764,7 @@ file sets overlap across tasks): T7.1 → T7.4 → T7.2 → T7.3 → T7.5.
       would benefit from a "confidence:" prefix or repositioning if this becomes a real usage
       complaint.
 
-- [ ] T7.5 (pi): Grounded Q&A over the case file. Backend: new
+- [x] T7.5 (pi): Grounded Q&A over the case file. Backend: new
       `backend/app/api/qa.py` (router prefix `/cases`, registered in `backend/app/main.py` next to
       the other routers) with `POST /cases/{case_id}/qa`. Request schema `CaseQARequest{question:
       str}`; response `CaseQAResponse{answer: str, grounded: bool, citations:
@@ -802,7 +802,15 @@ file sets overlap across tasks): T7.1 → T7.4 → T7.2 → T7.3 → T7.5.
       via the existing `get_case_scoped` dependency); the Case Workspace has a working "Ask" tab:
       submitting a question shows a loading state then an answer with citation markers, and a
       no-match question renders in the distinct muted style, not as an error; `npm run
-      build`/`npm test`/`pytest` clean.
+      build`/`npm test`/`pytest` clean. · reviewed 2026-07-22 @ <sha-pending> (backend: full
+      `pytest -q` in the container — 42/42, including the new 4-test `test_case_qa.py`
+      [no-facts short-circuit never calls the model, grounded citations resolve to real
+      fact/document rows, out-of-range indices silently dropped, cross-tenant 404]; frontend
+      build/test clean; verified live end-to-end against the **real configured model**
+      [glm-5.2 via Ollama Cloud, not mocked] — seeded a real document + extracted fact, asked
+      "What awards has she won?" and got a correctly grounded, cited answer `[EX-1 p.4]`, then
+      asked an unanswerable question and got "Not found in this record." in the distinct
+      muted/italic style, then cleaned up the seeded rows).
 
 ## Known follow-ups (Phase 7)
 
