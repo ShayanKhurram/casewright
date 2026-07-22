@@ -20,18 +20,20 @@ Exit criterion (plan §14): two firms cannot see each other's data; deploy from 
 
 **Phase 0 verified end-to-end 2026-07-21**: `docker compose up -d --build` (~4m40s including image pulls, well under the 15-min budget) → `scripts/create_firm.py` for two firms → login as each → firm A creates a case → firm B's direct-id read 404s, firm B's list is empty, firm A's own read succeeds, unauthenticated read is 401. See `PROJECT_LOG.md` for detail.
 
-## Phase 1 — RFE engine (not started)
+## Phase 1 — RFE engine
 
 Doc upload + OCR, knowledge seed, RFE graph (parse → plan → draft → verify), runner + gates,
 minimal review UI. Exit criterion: real RFE notice in → verified rebuttal draft out, gated, audited.
 
-- [ ] T1.1: S3/MinIO document upload endpoint + native PDF text extraction + vision OCR fallback (<40 chars/page threshold)
-- [ ] T1.2: `knowledge_chunks` seeding (18 criterion standards, core authorities, starter patterns) + embeddings (Voyage, hash fallback)
-- [ ] T1.3: LangGraph RFE graph: parse → plan → draft → verification → interrupt gate → finalize, `AsyncPostgresSaver` checkpointing
-- [ ] T1.4: Runner module (`start_run`/`resume_run`), `agent_runs` lifecycle
-- [ ] T1.5: Verification layer (citation integrity, fact consistency, confidence surfacing)
-- [ ] T1.6: `POST /cases/{id}/runs/rfe`, `GET /cases/{id}/runs`, `POST /runs/{run_id}/gate`, `GET /cases/{id}/rfe`
-- [ ] T1.7: Minimal RFE review UI
+- [x] T1.1: S3/MinIO document upload endpoint + native PDF text extraction + vision OCR fallback (<40 chars/page threshold) — acceptance: upload through the live API stores to MinIO, extracts native PDF text, tolerates corrupt PDFs without 500ing · reviewed 2026-07-22 @ e056ed8
+- [x] T1.2: `knowledge_chunks` seeding (18 criterion standards, core authorities, starter patterns) + embeddings (Voyage, hash fallback) — acceptance: `seed_knowledge` is idempotent, produces 18 criteria + 4 authorities + 3 patterns · reviewed 2026-07-22 @ e056ed8
+- [x] T1.3: LangGraph RFE graph: parse → plan → draft → verification → interrupt gate → finalize, `AsyncPostgresSaver` checkpointing — acceptance: mocked-LLM graph test verifies sequencing, gate pause/resume, and the bounded revision loop · reviewed 2026-07-22 @ e056ed8
+- [x] T1.4: Runner module (`start_run`/`resume_run`), `agent_runs` lifecycle — acceptance: live run against no API key transitions cleanly to `status=failed` with a captured error, no hang/crash · reviewed 2026-07-22 @ e056ed8
+- [x] T1.5: Verification layer (citation integrity, fact consistency, confidence surfacing) — acceptance: unresolved exhibit markers and unknown authority refs are blockers; fact-check is skipped (not faked) without a configured LLM · reviewed 2026-07-22 @ e056ed8
+- [x] T1.6: `POST /cases/{id}/runs/rfe`, `GET /cases/{id}/runs`, `POST /runs/{run_id}/gate`, `GET /cases/{id}/rfe`, `GET /cases/{id}/drafts`, `POST /sections/{id}/review` — acceptance: all firm-scoped, verified live · reviewed 2026-07-22 @ e056ed8
+- [x] T1.7: Minimal RFE review UI (Case Workspace: Evidence/RFE/Drafts tabs, gate banner, section reviewer, deadline badge) — acceptance: `npm run build` clean, served by nginx, verified live against the real API · reviewed 2026-07-22 @ e056ed8
+
+**Phase 1 verified end-to-end 2026-07-22**: full Docker stack rebuild → seed knowledge (18/4/3) → create firm → upload a real RFE notice PDF (native text extracted, exhibit label assigned, presigned URL fetchable) → start an RFE run with no `ANTHROPIC_API_KEY` configured and confirm it fails gracefully (`status=failed`, clear error, no hang) rather than claiming success. Graph mechanics (parse → plan → draft → verify → gate → finalize, revision loop, checkpointing) verified separately with a mocked LLM: 16/16 backend tests pass, ruff/mypy clean, frontend builds clean. See `PROJECT_LOG.md` for the two defects this exposed that unit tests didn't catch.
 
 ## Phase 2 — Petition engine (not started)
 ## Phase 3 — Product UI (not started)
