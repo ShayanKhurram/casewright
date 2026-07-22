@@ -23,20 +23,25 @@ export default {
         // renamed only at the Tailwind-class level to avoid colliding with the legacy
         // "hairline" key above (which stays light for as-yet-unmigrated screens). The CSS
         // variables themselves are named --hairline/--hairline-strong exactly as spec'd.
-        bg: "var(--bg)",
-        surface: "var(--surface)",
-        "surface-2": "var(--surface-2)",
+        // rgb(var(--x-rgb) / <alpha-value>) (not a bare `var(--x)` hex string) so that Tailwind
+        // opacity modifiers (`bg-accent/40`, `ring-run/10`, ...) actually emit CSS — Tailwind
+        // can only vary alpha on a color it can decompose into channels. `border`/`border-strong`
+        // are left as bare hex/rgba vars since --hairline is already a fixed-alpha rgba and
+        // isn't used with a modifier.
+        bg: "rgb(var(--bg-rgb) / <alpha-value>)",
+        surface: "rgb(var(--surface-rgb) / <alpha-value>)",
+        "surface-2": "rgb(var(--surface-2-rgb) / <alpha-value>)",
         border: "var(--hairline)",
         "border-strong": "var(--hairline-strong)",
-        text: "var(--text)",
-        "text-dim": "var(--text-dim)",
-        "text-faint": "var(--text-faint)",
-        accent: "var(--accent)",
-        "accent-hover": "var(--accent-hover)",
-        met: "var(--met)",
-        partial: "var(--partial)",
-        gap: "var(--gap)",
-        run: "var(--run)",
+        text: "rgb(var(--text-rgb) / <alpha-value>)",
+        "text-dim": "rgb(var(--text-dim-rgb) / <alpha-value>)",
+        "text-faint": "rgb(var(--text-faint-rgb) / <alpha-value>)",
+        accent: "rgb(var(--accent-rgb) / <alpha-value>)",
+        "accent-hover": "rgb(var(--accent-hover-rgb) / <alpha-value>)",
+        met: "rgb(var(--met-rgb) / <alpha-value>)",
+        partial: "rgb(var(--partial-rgb) / <alpha-value>)",
+        gap: "rgb(var(--gap-rgb) / <alpha-value>)",
+        run: "rgb(var(--run-rgb) / <alpha-value>)",
       },
       fontFamily: {
         display: ["Source Serif 4", "serif"],

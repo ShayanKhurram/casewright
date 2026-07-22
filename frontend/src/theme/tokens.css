@@ -19,6 +19,24 @@
   --gap: #e05252;
   --run: #5b8def;
 
+  /* RGB channel triples of the colors above, for Tailwind's `bg-accent/40`-style opacity
+     modifiers: Tailwind can only vary alpha on a color it can decompose into channels, and a
+     bare `var(--accent)` (a hex string) isn't decomposable — see tailwind.config.js, which
+     wires these through `rgb(var(--x-rgb) / <alpha-value>)`. Keep every triple in sync with
+     its hex value above if either ever changes. */
+  --bg-rgb: 12 17 24;
+  --surface-rgb: 18 26 36;
+  --surface-2-rgb: 24 34 46;
+  --text-rgb: 232 236 242;
+  --text-dim-rgb: 148 163 184;
+  --text-faint-rgb: 91 107 127;
+  --accent-rgb: 193 66 79;
+  --accent-hover-rgb: 210 85 98;
+  --met-rgb: 63 180 124;
+  --partial-rgb: 217 160 62;
+  --gap-rgb: 224 82 82;
+  --run-rgb: 91 141 239;
+
   /* Shape */
   --radius-card: 8px;
   --radius-control: 6px;
