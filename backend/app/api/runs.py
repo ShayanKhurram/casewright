@@ -11,10 +11,41 @@ from app.models.case import Case, Document
 from app.models.ops import AgentRun
 from app.models.rfe import RFENotice
 from app.models.tenant import User
-from app.schemas.run import GateDecisionRequest, RunOut, StartRFERunRequest
+from app.schemas.run import ActiveRunOut, GateDecisionRequest, RunOut, StartRFERunRequest
 from app.services import audit
 
 router = APIRouter(tags=["runs"])
+
+
+@router.get("/runs/active", response_model=list[ActiveRunOut])
+async def list_active_runs(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[ActiveRunOut]:
+    """Firm-wide, not case-scoped — powers the topbar's RunIndicator (plan §4), which needs
+    to know about every in-flight run regardless of which case workspace the attorney is
+    currently looking at."""
+    result = await db.execute(
+        select(AgentRun, Case.beneficiary_name)
+        .join(Case, Case.id == AgentRun.case_id)
+        .where(AgentRun.firm_id == current_user.firm_id, AgentRun.status.in_(["running", "waiting_review"]))
+        .order_by(AgentRun.updated_at.desc())
+    )
+    return [
+        ActiveRunOut(
+            id=run.id,
+            case_id=run.case_id,
+            graph=run.graph,
+            status=run.status,
+            current_gate=run.current_gate,
+            gate_payload=run.gate_payload,
+            error=run.error,
+            created_at=run.created_at,
+            updated_at=run.updated_at,
+            beneficiary_name=beneficiary_name,
+        )
+        for run, beneficiary_name in result.all()
+    ]
 
 
 @router.post("/cases/{case_id}/runs/petition", response_model=RunOut, status_code=201)

@@ -333,6 +333,52 @@ Tests: `cd backend && pytest` (needs a reachable Postgres — `docker compose up
   missing pgvector import/extension statement, and the test suite's event-loop-per-fixture
   mismatch (session-scoped engine fixture vs. function-scoped pytest-asyncio loops).
 
+### 2026-07-22 (UI redesign, T5.1)
+
+- User supplied `casewright-ui-redesign-plan.md` (dark "night-mode legal instrument panel"
+  re-skin, reference class Linear/Vercel/Raycast) and asked to implement it. Scoped it into
+  Phase 5 in `PLAN.md` (T5.1–T5.8, Claude/pi split per the existing division-of-labor pattern)
+  and built T5.1 (the foundation every later task depends on) directly rather than delegating,
+  same reasoning as Phase 0/1/3's foundational pieces: a mistake in the token system or shell
+  propagates into every screen built on top of it.
+- Built: `src/theme/tokens.css` (full CSS-variable token set from the plan's §3 — colors,
+  radii, spacing, easing/duration, shadow), extended (not replaced) `tailwind.config.js` to map
+  those tokens into new Tailwind classes (`bg`, `surface`, `surface-2`, `border`,
+  `border-strong`, `text`/`text-dim`/`text-faint`, `accent`, `met`/`partial`/`gap`/`run`) while
+  leaving the legacy light-theme tokens (`ink`, `paper`, `slate`, `hairline`, ...) untouched —
+  the plan's `--hairline` variable is deliberately exposed as `border`/`border-strong` instead
+  of a Tailwind class literally named `hairline`, to avoid colliding with the legacy key and
+  making borders invisible on the screens not yet migrated. New app shell: `RouteProgressBar`,
+  `Sidebar` (collapsible, `localStorage`-persisted), `Topbar` (breadcrumb + RunIndicator +
+  UserMenu), all composed in a rewritten `Shell.tsx` that wraps every authenticated route.
+- The redesign spec assumed two pieces of backend surface that didn't exist yet, so this round
+  also added them (kept in-house, same reasoning as the shell itself):
+  - `GET /runs/active` (new, firm-wide not case-scoped) — powers the topbar's RunIndicator,
+    which needs to know about in-flight runs across the whole firm regardless of which case
+    workspace is open. New `ActiveRunOut` schema, firm-tenancy test included
+    (`test_active_runs.py`, 2 tests: status filtering, cross-firm isolation).
+  - `/auth/me` now resolves `firm_name` server-side instead of returning only `firm_id`. This
+    is the direct fix for the bug the redesign plan explicitly named ("raw firm UUID + role
+    string in header") — fixed at the source (backend resolves the name) rather than patched
+    over client-side.
+- Verified: `npm run build` clean (1922 modules), `npm test` 14/14 pre-existing tests
+  unaffected, backend `ruff`/`mypy`/pytest clean. Then a full `docker compose up -d --build`
+  and live HTTP verification through nginx: a transient 502 on `/api/health` immediately after
+  the rebuild turned out to be a plain startup race (nginx's first request landed before the
+  backend finished `alembic upgrade head` and bound its port — confirmed from nginx's access
+  log timestamp vs. the backend's "Application startup complete" line, 9 seconds apart, not a
+  regression), resolved on its own by the next request. Logged into a freshly created test firm
+  through nginx end-to-end and exercised both new endpoints for real: `/auth/me` returned the
+  resolved `firm_name`, `/runs/active` returned `[]` cleanly for a firm with no runs. Grepped
+  the new shell source for stray hex codes — none outside `tokens.css`, satisfying that
+  acceptance criterion directly rather than by inspection alone.
+  - Caveat: no browser/screenshot tool is available in this environment, so the actual visual
+    render (dark chrome rendering correctly, sidebar collapse animation, popover positioning)
+    has not been eyeballed in a real browser — only build/type-check cleanliness, the DOM/route
+    wiring, and live API responses were verified. Flagged here rather than silently skipped;
+    revisit if a way to capture a real screenshot becomes available before T5.8's final polish
+    pass.
+
 ## Known Issues / Open TODOs
 
 All four plan phases now have code-level completeness (see `PLAN.md`), and both major

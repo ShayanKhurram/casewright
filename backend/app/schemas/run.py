@@ -26,3 +26,11 @@ class RunOut(BaseModel):
 class GateDecisionRequest(BaseModel):
     decision: Literal["approve", "revise"]
     notes: str | None = None
+
+
+class ActiveRunOut(RunOut):
+    """RunOut + the beneficiary name, denormalized for the topbar's RunIndicator (plan §4) —
+    it lists runs across every case in the firm, so it needs enough context to be useful
+    without a second round-trip per row."""
+
+    beneficiary_name: str

@@ -1,65 +1,20 @@
-import { useNavigate } from "react-router-dom";
+import RouteProgressBar from "./shell/RouteProgressBar";
+import Sidebar from "./shell/Sidebar";
+import Topbar from "./shell/Topbar";
 
-import { clearToken, getToken } from "../lib/api";
-
-interface JwtPayload {
-  sub?: string;
-  firm_id?: string;
-  role?: string;
-}
-
-function decodeJwt(): JwtPayload | null {
-  const token = getToken();
-  if (!token) return null;
-  try {
-    const parts = token.split(".");
-    if (parts.length < 2) return null;
-    // base64url -> base64, then atob, then JSON.parse on the middle segment.
-    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const json = decodeURIComponent(
-      atob(b64)
-        .split("")
-        .map((c) => `%${("00" + c.charCodeAt(0).toString(16)).slice(-2)}`)
-        .join(""),
-    );
-    return JSON.parse(json) as JwtPayload;
-  } catch {
-    return null;
-  }
-}
-
+/** App shell (redesign §4): sidebar + topbar chrome goes dark immediately; the content slot
+ * keeps an explicit light background for now, since child screens are re-skinned
+ * screen-at-a-time in later phases (T5.5–T5.7) — this is the expected intermediate state,
+ * not a bug. Remove the bg-paper override here once every screen is migrated. */
 export default function Shell({ children }: { children: React.ReactNode }) {
-  const navigate = useNavigate();
-  const user = decodeJwt();
-
-  function handleSignOut() {
-    clearToken();
-    navigate("/login");
-  }
-
   return (
-    <div className="min-h-screen bg-paper">
-      <header className="border-b border-hairline bg-ink">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-8 py-3">
-          <span className="font-display text-lg text-paper">Casewright</span>
-          {user && (
-            <div className="flex items-center gap-3">
-              {/* slate is ~2.9:1 on the dark ink header (fails AA even for large text) —
-                  hairline is ~12.7:1, so it's used here instead of the usual secondary-text token */}
-              <span className="font-mono text-xs text-hairline">
-                {user.role ?? "—"} · {user.firm_id ?? "—"}
-              </span>
-              <button
-                onClick={handleSignOut}
-                className="rounded border border-hairline px-2 py-1 font-mono text-xs text-paper hover:opacity-90"
-              >
-                Sign out
-              </button>
-            </div>
-          )}
-        </div>
-      </header>
-      {children}
+    <div className="flex h-screen overflow-hidden bg-bg">
+      <RouteProgressBar />
+      <Sidebar />
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <Topbar />
+        <main className="flex-1 overflow-y-auto bg-paper">{children}</main>
+      </div>
     </div>
   );
 }

@@ -265,12 +265,18 @@ screen-by-screen re-skin. The source doc's own estimate is 2.5–3 weeks; built 
 time per its own §11 breakdown, foundation first since every later phase depends on the token
 system and ui-kit being right.
 
-- [ ] T5.1 (Claude): dark token system (`src/theme/tokens.css` CSS variables →
+- [x] T5.1 (Claude): dark token system (`src/theme/tokens.css` CSS variables →
       `tailwind.config.js` mapping) + app shell (Sidebar collapsible 224px↔56px, Topbar with
       breadcrumb/RunIndicator/user menu, 2px route-progress bar) — kept in-house since every
       other component consumes these tokens and a mistake here propagates everywhere.
       Acceptance: no ad-hoc hex outside `tokens.css`; shell renders on every authenticated
       route; sidebar collapse persists per §4.
+      · reviewed 2026-07-22 @ pre-commit (see PROJECT_LOG). Also required two backend
+      additions the redesign spec implied but didn't yet exist: `GET /runs/active`
+      (firm-wide active-run listing for RunIndicator) and `/auth/me` resolving `firm_name`
+      server-side (fixes the plan's named "raw firm UUID in header" bug). Verified via
+      `npm run build`/`npm test`, full docker rebuild, and live login through nginx
+      (fresh test user, `/auth/me` and `/runs/active` both exercised end-to-end).
 - [ ] T5.2 (pi): ui-kit primitives (`src/components/ui/`: Button w/ loading state, Input,
       Select, Textarea, Pill, Toast system, EmptyState) per §5's exact variant/state specs,
       built against T5.1's tokens. Acceptance: `npm run build` clean, each primitive matches

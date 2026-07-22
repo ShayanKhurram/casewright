@@ -55,3 +55,20 @@ async def test_me_requires_valid_token(client: AsyncClient):
 
     res = await client.get("/api/auth/me", headers={"Authorization": "Bearer garbage"})
     assert res.status_code == 401
+
+
+async def test_me_includes_firm_name_not_just_id(db_session: AsyncSession, client: AsyncClient):
+    """The UI must never render a raw firm UUID (casewright-ui-redesign-plan.md §1) — /auth/me
+    has to resolve it to a name for the user menu to have anything sensible to show."""
+    await _seed_user(db_session)
+    login_res = await client.post(
+        "/api/auth/login", data={"username": "jane@example.test", "password": "correct-horse-battery"}
+    )
+    token = login_res.json()["access_token"]
+
+    res = await client.get("/api/auth/me", headers={"Authorization": f"Bearer {token}"})
+
+    assert res.status_code == 200
+    body = res.json()
+    assert body["firm_name"] == "Test Firm"
+    assert body["role"] == "partner"

@@ -13,6 +13,7 @@ class UserOut(BaseModel):
 
     id: uuid.UUID
     firm_id: uuid.UUID
+    firm_name: str
     email: str
     role: str
     full_name: str | None

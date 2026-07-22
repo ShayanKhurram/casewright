@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user
 from app.db import get_db
-from app.models.tenant import User
+from app.models.tenant import Firm, User
 from app.schemas.auth import Token, UserOut
 from app.services.security import create_access_token, verify_password
 
@@ -36,5 +36,18 @@ async def login(
 
 
 @router.get("/me", response_model=UserOut)
-async def me(current_user: User = Depends(get_current_user)) -> User:
-    return current_user
+async def me(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> UserOut:
+    firm = await db.get(Firm, current_user.firm_id)
+    assert firm is not None
+    return UserOut(
+        id=current_user.id,
+        firm_id=current_user.firm_id,
+        firm_name=firm.name,
+        email=current_user.email,
+        role=current_user.role,
+        full_name=current_user.full_name,
+        is_active=current_user.is_active,
+    )

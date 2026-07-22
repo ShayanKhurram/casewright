@@ -1,3 +1,13 @@
+export interface CurrentUser {
+  id: string;
+  firm_id: string;
+  firm_name: string;
+  email: string;
+  role: string;
+  full_name: string | null;
+  is_active: boolean;
+}
+
 export interface Case {
   id: string;
   firm_id: string;
@@ -48,6 +58,10 @@ export interface AgentRun {
   error: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface ActiveRun extends AgentRun {
+  beneficiary_name: string;
 }
 
 export interface RFEObjection {
