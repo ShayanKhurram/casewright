@@ -860,6 +860,28 @@ tasks for safe parallel pi sessions).
   toggle reveals the full chronological feed with the per-criterion text rendering correctly, then
   deleted the row. Stamped `[x]` in `PLAN.md` at commit `b93136d`.
 
+- **T7.2 (pi, one round, no re-guide needed): case health score.** Brief specified a pure
+  `compute_case_health()` function (three independent `select()`s, no mega-join), new
+  `CaseHealthOut`/`CaseWithHealthOut` schemas, and switching `GET /cases`/`GET /cases/{id}` to the
+  health-carrying response model rather than adding a separate `/health` endpoint (deliberately —
+  avoids N+1 extra frontend fetches since both Dashboard and the Overview tab already fetch the
+  case object they need `health` attached to). pi delivered exactly the file set scoped, plus the
+  test file the brief asked for (`test_case_health.py`, 2 tests matching the brief's exact
+  coverage: zero-state, and a hand-computed mixed-verdict formula check).
+  Verified independently: full backend `pytest -q` in the container (36/36, including the two new
+  tests). Verified live, not just build/test: seeded 2 real `criterion_assessments` (one met, one
+  partial) on the same test case, confirmed the Dashboard dial showed **32** — matching
+  `round(0.4*80 + 0.3*0 + 0.3*0)` by hand — and that the Overview tab showed the identical number
+  from the same `caseData.health` object (no separate fetch, as designed). Clicked the dial inside
+  Dashboard's `<Link>`-wrapped `CaseCard` and confirmed it opens the breakdown panel *without*
+  triggering the card's own navigation (the `stopPropagation` in the click handler works as
+  intended). Noted one accessibility nit, not worth a re-guide: `HealthDial` renders a `<button>`,
+  and on Dashboard that button sits inside `CaseCard`'s wrapping `<Link>` — a `<button>` nested
+  inside an `<a>` is invalid HTML (interactive-in-interactive), even though every browser tested
+  renders and behaves correctly. Logged as a known issue below rather than blocking on it — my
+  own brief specified the button, this isn't a pi deviation. Stamped `[x]` in `PLAN.md` at commit
+  `8f675d5`.
+
 ## Known Issues / Open TODOs
 
 All four plan phases now have code-level completeness (see `PLAN.md`), and both major
@@ -972,3 +994,12 @@ live against a real model, not just mocked ones. What's left below is smaller an
   progress state in an actual narrow container (`OverviewTab`'s card), not just the two unit
   tests (which only assert node labels are present, not layout/spacing) — this round found a
   real squish bug that had been invisible to every prior check.
+- `HealthDial`'s toggle `<button>` renders inside Dashboard `CaseCard`'s wrapping `<Link>`
+  (interactive-in-interactive nesting, invalid HTML per spec) — works correctly in every browser
+  tested (click-to-expand doesn't trigger navigation, thanks to `stopPropagation`), but a stricter
+  a11y audit or a screen-reader user could hit confusing nested-tab-stop behavior. Fix by
+  restructuring `CaseCard` so the `<Link>` wraps only the navigable content and the dial sits
+  outside it (e.g. an absolutely-positioned sibling), not by removing the `<button>` semantics.
+- Left two throwaway firm/admins in the dev database from Phase 7 live-verification rounds
+  (`t71-review@firm.test` / "T71 Review Firm", used for T7.1/T7.2/T7.4) — not cleaned up, same
+  policy as Phase 6's leftover test firm.
