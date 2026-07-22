@@ -17,8 +17,11 @@ export default {
         // every one of them (across src/pages and src/components) came back empty — every
         // screen is now on the dark system, so there was nothing left for them to protect.
         bg: "rgb(var(--bg-rgb) / <alpha-value>)",
-        surface: "rgb(var(--surface-rgb) / <alpha-value>)",
-        "surface-2": "rgb(var(--surface-2-rgb) / <alpha-value>)",
+        // surface/surface-2 are fixed-alpha rgba() glass fills (not decomposable channel
+        // triples) — no `bg-surface/NN` opacity-modifier usages exist in the codebase (verified
+        // by grep), so there's nothing relying on the <alpha-value> pattern here.
+        surface: "var(--surface)",
+        "surface-2": "var(--surface-2)",
         border: "var(--hairline)",
         "border-strong": "var(--hairline-strong)",
         text: "rgb(var(--text-rgb) / <alpha-value>)",

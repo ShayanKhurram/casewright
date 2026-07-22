@@ -479,3 +479,131 @@ system and ui-kit being right.
       this was visually confirmed by eye — the ratios are computed against the real rendered
       color values, which is the rigorous half of the audit, but an actual look (human or a
       future screenshot-capable session) is still warranted before pilot use.
+
+## Phase 6 — Glass reskin
+
+User supplied `inspired_ui/` — a Figma-make single-file mockup (App.tsx) of a "LexPath" demo
+app using a monochrome glassmorphism aesthetic (near-black bg, translucent white/[opacity]
+blurred cards, rounded-2xl, no color coding). User confirmed via clarifying question: (1) keep
+Phase 5's semantic verdict/urgency/run colors — glass treatment applies to neutrals only, not a
+literal monochrome copy; (2) reskin the whole app, not just the screens the mockup shows
+(mockup has no Login or Case Workspace equivalent). User then took this task over from the
+normal pi-build loop ("do it yourself") — built directly by Claude, no pi round.
+
+- [x] T6.1: Glass token reskin — acceptance: every screen (Login, Dashboard/Cases, Case
+      Workspace's 6 tabs, Shell) visually re-skins to translucent blurred glass surfaces on a
+      near-black radial-gradient background, semantic colors (accent/met/partial/gap/run)
+      unchanged, `npm run build` clean · reviewed 2026-07-22 @ (uncommitted — see below)
+
+**Implementation**: the app already routed every card/panel/dialog/popover through
+`tokens.css`'s CSS-variable token system (`bg-surface`, `bg-surface-2`, `border-border`,
+`rounded-card`) — Phase 5's biggest structural asset turned out to be exactly the right lever
+here. Retuned the tokens themselves instead of touching call sites:
+  - `--bg` → near-black `#08080c` + new `--bg-radial` (soft violet radial gradient, mirrors the
+    mockup's `radial-gradient(...) , #080810` body treatment) painted on `body`.
+  - `--surface`/`--surface-2` changed from opaque hex to fixed-alpha `rgba(255,255,255,0.04)` /
+    `rgba(255,255,255,0.07)` (confirmed by grep first: no `bg-surface/NN` opacity-modifier call
+    sites anywhere, so dropping the `rgb(var(...)/<alpha-value>)` decomposable-channel pattern
+    for these two tokens specifically was safe).
+  - `--hairline`/`--hairline-strong` bumped to `rgba(255,255,255,0.08)`/`0.16` (were already
+    rgba, just retuned brighter for the lighter glass fills).
+  - New global rule in `index.css`: `.bg-surface, .bg-surface-2 { backdrop-filter: blur(20px)
+    saturate(180%); }` — turns every existing translucent-fill element into real frosted glass
+    in one shot, since Tailwind emits a literal `.bg-surface` class name regardless of where
+    it's used.
+  - `--radius-card` 8px→16px, `--radius-control` 6px→12px (mockup's rounded-2xl/rounded-xl).
+  - Left `--text`/`--text-dim`/`--text-faint` and all semantic tokens (accent/met/partial/gap/
+    run + their WCAG-safe variants) untouched — deliberate, both per the user's answer and to
+    not re-litigate the T5.8 contrast audit (translucent-glass surfaces over a darker bg only
+    improve contrast for light text, never reduce it).
+  - Targeted edits beyond the token cascade: `Sidebar`/`Topbar` switched from `bg-bg` (opaque)
+    to `bg-surface` (glass) so the shell chrome visibly floats over the radial-gradient body,
+    matching the mockup's frosted sidebar; added a `Monogram` avatar (translucent initials
+    circle) to Dashboard's `CaseCard`, matching the mockup's case-row treatment, plus a
+    `hover:bg-surface-2` fill-lift on hover (mockup's `glassHover` pattern).
+  - `tailwind.config.js`: `surface`/`surface-2` color mapping updated to point at the new plain
+    (non-decomposable) CSS vars.
+
+**Verified live**, not just built: `npm run build` clean; started the Vite dev server, added a
+temporary `server.proxy` for `/api` → `http://localhost:8000` in `vite.config.ts` (the dev
+server had no route to the dockerized backend before this — left in place, it's a reusable dev
+convenience); created a throwaway firm/admin via `python -m scripts.create_firm` inside the
+backend container; logged in through Chrome (claude-in-chrome) and screenshotted Login, an
+empty Dashboard, the New Case dialog (confirmed the backdrop-filter blur is real — the dashboard
+visibly blurs behind the modal), the populated Dashboard card (glass card + monogram + status
+pill), and the Case Workspace tab shell. All read as a cohesive frosted-glass system consistent
+with `inspired_ui`, garnet/verdict colors intact. Not yet committed to git — left for the user to
+review the diff before committing.
+
+- [x] T6.2: Segmented-pill chrome + PipelineTracker "thinking" upgrade — acceptance: Case
+      Workspace's 6-tab bar and Dashboard's Status filter render as glass segmented-pill
+      controls (matching `inspired_ui`'s filter-row pattern, consistent with the Category
+      control's existing convention); the active pipeline node gets a soft glow halo, a spinning
+      indicator + elapsed timer, and an animated "thinking" ellipsis; `npm run build`/`npm test`
+      (16/16) clean · reviewed 2026-07-22 @ (uncommitted)
+
+**Implementation**: user clarified via a second round of questions — apply the pill treatment to
+*both* Case Workspace tabs and Dashboard filters, and upgrade the *existing* PipelineTracker
+rather than build a new separate "thinking" indicator (the tracker's per-node stepper is accurate
+to what's actually running; a generic spinner would be a regression in truthfulness). Changes:
+  - `CaseWorkspace.tsx`: `TabsPrimitive.List` changed from underline tabs to a `bg-surface`
+    wrapper + `p-1` + pill triggers (`data-[state=active]:bg-surface-2`), matching the app's
+    existing Category-filter convention (recessed track, brighter active pill) rather than
+    inventing a new one. Count badges changed from bare mono numbers to small `bg-bg/40` chips.
+  - `Dashboard.tsx`: Status filter changed from a `<Select>` dropdown to the same segmented-pill
+    pattern, horizontally scrollable (`overflow-x-auto`) since there are 11 statuses + "All" —
+    too many to fit one row at typical widths, unlike `inspired_ui`'s 6-item example.
+  - `PipelineTracker.tsx`: active-node marker gets a static glow halo (inline `boxShadow` using
+    `rgb(var(--run-rgb) / 0.35)` — static, so no reduced-motion carve-out needed); a `Loader2`
+    spin icon next to the existing elapsed-time label; a new `ThinkingDots` component (three
+    dots pulsing in sequence via staggered `animation-delay` on the built-in `animate-pulse`
+    keyframe, `motion-reduce:animate-none`) appended to the active node's label.
+  - **Real defect found and fixed during verification** (not introduced by this round): the
+    tracker's inter-node connector divs were `flex-1` with no minimum width. Inside a `<ol
+    className="flex items-start">` with no intrinsic width constraint, once the tracker sits in
+    a container narrower than its natural content width (`OverviewTab`'s two-column card, which
+    already wraps it in `overflow-x-auto` expecting to *scroll* a wide tracker), flex-shrink
+    crushed every connector toward 0px, so adjacent node labels rendered with no visible gap
+    ("INTAKEPROFILEELIGIBILITY..."). Fixed by giving the `<ol>` `w-max` (so it reports its full
+    intrinsic width to the scroll container instead of shrinking to fit) and replacing the
+    connectors' `flex-1` with a fixed `w-6 shrink-0`. This is likely the same class of "never
+    visually verified" gap flagged at the end of the T5.8 timeline entry — this round is the
+    first time this component has ever been rendered with real fan-out progress data in a
+    browser.
+
+**Verified live**: rebuilt+redeployed the frontend Docker image (twice — once for the pill
+chrome, again after the connector fix) and re-checked through nginx at `:8080`, not just the Vite
+dev server, after the user reported the dev-server-only check hadn't reflected in their own
+browser. Since no `ANTHROPIC_API_KEY` is configured in this environment, a real agent run
+can't reach a populated "active" progress state — inserted a throwaway `agent_runs` row directly
+(`status='running'`, fan-out at 6/10, a `started_at` ~3 minutes in the past) against the same
+`ui-preview@firm.test` test case used for T6.1, screenshotted the result, then deleted the row
+immediately after.
+
+- [x] T6.3: Thin glass-matched scrollbars — acceptance: every `overflow-x-auto` container (the
+      PipelineTracker's scroll wrapper, Case Workspace's tab list, Evidence/RFE tables, the
+      Drafts three-pane) renders a thin hairline-colored scrollbar instead of the bare OS
+      scrollbar (chunky bar + arrow buttons), only appearing when content actually overflows ·
+      reviewed 2026-07-22 @ (uncommitted). User flagged the default scrollbar under the T6.2
+      PipelineTracker screenshot as ugly. Fixed with one global rule in `index.css` targeting the
+      literal `.overflow-x-auto` Tailwind class (`scrollbar-width: thin` + `scrollbar-color` for
+      Firefox, `::-webkit-scrollbar*` for Chrome/Edge) — same blanket-cascade trick as T6.1's
+      `.bg-surface` backdrop-blur rule, so it fixes every current and future `overflow-x-auto`
+      spot at once rather than patching each file. Rebuilt the Docker image a third time,
+      re-inserted a throwaway `agent_runs` row to force the scrollbar to appear, confirmed via
+      zoomed screenshot, deleted the row again.
+
+## Known follow-ups (not done this round)
+
+- Case Workspace's individual tab bodies (Evidence table, Criteria matrix, Strategy memo,
+  Drafts three-pane, RFE) were only spot-checked via the Overview tab (empty-state case, no
+  seeded criteria/evidence/drafts) — they inherit the token cascade automatically, but haven't
+  been visually verified with populated data.
+- Font family (Source Serif 4 display + Inter body) was deliberately kept as-is rather than
+  matching the mockup's Inter-only — a judgment call to preserve Casewright's existing legal-
+  brand identity, not re-confirmed with the user. Revisit if the user wants literal mockup
+  typography too.
+- The PipelineTracker's mini/compact usage (Dashboard's `CaseCard` progress bar, a plain 1px
+  fraction bar, not the full stepper) wasn't touched by the "thinking" upgrade — only the full
+  `PipelineTracker` stepper (used in `OverviewTab`) got the glow/spinner/dots treatment. Worth a
+  look if the dashboard-level progress indicator should feel equally "alive."

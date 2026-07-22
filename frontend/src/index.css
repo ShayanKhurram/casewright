@@ -6,9 +6,44 @@
 
 /* Every screen (T5.5–T5.7) now paints its own bg-bg wrapper rather than relying on body, so
    body just carries the dark defaults directly — nothing left depends on the legacy paper/ink
-   tokens (see the empty grep for them across src/pages and src/components). */
+   tokens (see the empty grep for them across src/pages and src/components). The radial gradient
+   (glass reskin) sits behind every screen's flat bg-bg fill; it only actually shows through on
+   the shell chrome (sidebar/topbar), which paint translucent bg-surface instead. */
 body {
-  @apply bg-bg text-text font-sans;
+  @apply text-text font-sans;
+  background-color: var(--bg);
+  background-image: var(--bg-radial);
+  background-attachment: fixed;
+}
+
+/* Glass reskin: every element using the surface/surface-2 tokens gets real backdrop-blur, not
+   just a translucent fill — this is what turns the existing bg-surface/bg-surface-2 utility
+   classes (already used everywhere: cards, dialogs, popovers, the shell) into frosted glass
+   panels. One rule, cascades app-wide, instead of touching every call site. */
+.bg-surface,
+.bg-surface-2 {
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+
+/* Thin, glass-matched scrollbar for every `overflow-x-auto` container (T5.8 added several of
+   these as a tablet-width safety net — PipelineTracker, the Case Workspace tab list, Evidence/
+   RFE tables, the Drafts three-pane) — a bare OS scrollbar reads as a jarring, out-of-place
+   chrome bar against translucent glass surfaces. One rule, same cascade trick as the
+   .bg-surface backdrop-blur above: targets the literal Tailwind-generated class name. */
+.overflow-x-auto {
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-strong) transparent;
+}
+.overflow-x-auto::-webkit-scrollbar {
+  height: 6px;
+}
+.overflow-x-auto::-webkit-scrollbar-track {
+  background: transparent;
+}
+.overflow-x-auto::-webkit-scrollbar-thumb {
+  background: var(--hairline-strong);
+  border-radius: var(--radius-pill);
 }
 
 /* Route-transition progress bar (§4): a 2px accent bar, CSS-only, no JS timing dependency. */

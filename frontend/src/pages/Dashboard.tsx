@@ -35,6 +35,25 @@ const STATUS_OPTIONS = [
 
 const CATEGORIES = ["All", "O-1A", "EB-1A"] as const;
 
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((p) => p[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+/** Glass monogram avatar (inspired_ui reskin) — a translucent circle, not a colored one, so it
+ * doesn't compete with the semantic status/urgency colors the redesign kept (§ StatusPill/Pill). */
+function Monogram({ name }: { name: string }) {
+  return (
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-pill border border-border bg-surface-2 font-mono text-xs font-medium text-text-dim">
+      {initials(name)}
+    </div>
+  );
+}
+
 function CaseCard({ case_: c, activeRun }: { case_: Case; activeRun?: ActiveRun }) {
   const needsReview = groupOf(c.status) === "review";
   const topology = activeRun ? (activeRun.graph === "petition" ? PETITION_TOPOLOGY : RFE_TOPOLOGY) : null;
@@ -49,12 +68,17 @@ function CaseCard({ case_: c, activeRun }: { case_: Case; activeRun?: ActiveRun 
     <Link
       to={`/cases/${c.id}`}
       className={[
-        "block rounded-card border bg-surface p-4 transition-colors duration-hover hover:border-border-strong",
+        "block rounded-card border bg-surface p-4 transition-colors duration-hover hover:border-border-strong hover:bg-surface-2",
         needsReview ? "border-l-[3px] border-l-partial border-y-border border-r-border" : "border-border",
       ].join(" ")}
     >
-      <p className="truncate font-display text-base text-text">{c.beneficiary_name}</p>
-      <p className="mt-0.5 font-mono text-xs text-text-faint">{c.visa_category}</p>
+      <div className="flex items-center gap-3">
+        <Monogram name={c.beneficiary_name} />
+        <div className="min-w-0">
+          <p className="truncate font-display text-base text-text">{c.beneficiary_name}</p>
+          <p className="mt-0.5 font-mono text-xs text-text-faint">{c.visa_category}</p>
+        </div>
+      </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <StatusPill status={c.status} />
         {needsReview && (
@@ -211,9 +235,25 @@ export default function Dashboard() {
             />
           </div>
         </div>
-        <div className="w-48">
+        <div className="min-w-0">
           <Label className="mb-1.5 block">Status</Label>
-          <Select value={statusFilter} onValueChange={setStatusFilter} options={STATUS_OPTIONS} />
+          {/* Glass segmented-pill filter bar (inspired_ui reskin), replacing the dropdown —
+              scrolls horizontally rather than wrapping/overflowing with 11 statuses + All. */}
+          <div className="flex max-w-full items-center gap-0.5 overflow-x-auto rounded-control border border-border bg-surface p-1">
+            {STATUS_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setStatusFilter(opt.value)}
+                className={[
+                  "shrink-0 whitespace-nowrap rounded-control px-3 py-1.5 text-xs font-medium transition-colors duration-hover",
+                  statusFilter === opt.value ? "bg-surface-2 text-text" : "text-text-dim hover:text-text",
+                ].join(" ")}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
         <div>
           <Label className="mb-1.5 block">Category</Label>

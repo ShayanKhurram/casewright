@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useState } from "react";
-import { Check, X } from "lucide-react";
+import { Check, Loader2, X } from "lucide-react";
 
 import { normalizeProgress } from "../../lib/runProgress";
 import type { RunProgress } from "../../types";
@@ -71,6 +71,23 @@ function FanRing({ done, total }: { done: number; total: number }) {
   );
 }
 
+/** Three-dot "thinking" ellipsis — each dot pulses in sequence via a staggered animation-delay
+ * on the built-in `animate-pulse` keyframe (no new keyframe needed). Purely decorative — freezes
+ * to static dots under prefers-reduced-motion, same as every other ambient animation here. */
+function ThinkingDots() {
+  return (
+    <span className="inline-flex items-center gap-0.5" aria-hidden>
+      {[0, 1, 2].map((i) => (
+        <span
+          key={i}
+          className="h-1 w-1 rounded-pill bg-run animate-pulse motion-reduce:animate-none"
+          style={{ animationDelay: `${i * 200}ms` }}
+        />
+      ))}
+    </span>
+  );
+}
+
 /** Done marker with a one-time 200ms scale pop-in on mount (CSS transition, no framer-motion). */
 function DoneMarker() {
   const [shown, setShown] = useState(false);
@@ -110,8 +127,12 @@ export default function PipelineTracker({ graph, status, progress: rawProgress }
 
   const now = Date.now();
 
+  // w-max (not the flex row's default shrink-to-fit): callers that place this in a narrower
+  // column (OverviewTab's two-up grid) already wrap it in overflow-x-auto expecting to scroll a
+  // wide tracker, not squeeze one — without w-max, the flex-1 connector lines below get shrunk
+  // toward 0 to fit the container, and adjacent node labels visually run together with no gap.
   return (
-    <ol className="flex items-start">
+    <ol className="flex w-max items-start">
       {topology.map((node, i) => {
         const state = deriveState(node, status, progress);
         const labelColor = LABEL_COLOR[state];
@@ -126,7 +147,10 @@ export default function PipelineTracker({ graph, status, progress: rawProgress }
           activeExtra = (
             <div className="flex flex-col items-center gap-0.5">
               {elapsedMs != null ? (
-                <span className="text-[10px] font-mono text-text-faint">{formatElapsed(elapsedMs)}</span>
+                <span className="flex items-center gap-1 text-[10px] font-mono text-text-faint">
+                  <Loader2 size={9} className="animate-spin text-run motion-reduce:animate-none" />
+                  {formatElapsed(elapsedMs)}
+                </span>
               ) : null}
               {fan ? (
                 <span className="flex items-center gap-1 text-[10px] font-mono text-run">
@@ -160,7 +184,12 @@ export default function PipelineTracker({ graph, status, progress: rawProgress }
             break;
           case "active":
             marker = (
-              <span className="relative flex h-5 w-5 items-center justify-center">
+              <span
+                className="relative flex h-5 w-5 items-center justify-center"
+                // Soft static glow halo (the "thinking" upgrade) — not animated, so no
+                // reduced-motion carve-out needed, unlike the ping below.
+                style={{ boxShadow: "0 0 14px 3px rgb(var(--run-rgb) / 0.35)" }}
+              >
                 {/* motion-reduce:animate-none (T5.8 audit): the ping here has an arbitrary
                     1.8s duration override, not a --duration token, so it needs the explicit
                     variant to freeze under prefers-reduced-motion. */}
@@ -183,13 +212,17 @@ export default function PipelineTracker({ graph, status, progress: rawProgress }
           <Fragment key={node.key}>
             <li className="flex shrink-0 flex-col items-center gap-1.5">
               {marker}
-              <span className={["text-[11px] uppercase tracking-wide", labelColor].join(" ")}>
+              <span className={["flex items-center gap-1 text-[11px] uppercase tracking-wide", labelColor].join(" ")}>
                 {node.label}
+                {state === "active" ? <ThinkingDots /> : null}
               </span>
               {activeExtra}
             </li>
             {i < topology.length - 1 ? (
-              <div aria-hidden className="mt-[10px] h-px flex-1 bg-border" />
+              // Fixed width, not flex-1: inside a w-max <ol>, a flex-1/flex-basis-0 connector
+              // still gets crushed toward 0 by the shrink-0 node columns on either side of it —
+              // a plain fixed width is what actually keeps a visible gap between every label.
+              <div aria-hidden className="mt-[10px] h-px w-6 shrink-0 bg-border" />
             ) : null}
           </Fragment>
         );

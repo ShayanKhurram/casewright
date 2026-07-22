@@ -87,26 +87,34 @@ export default function CaseWorkspace() {
               tight below ~1024px inside this max-w-5xl container — scrolls instead of wrapping
               or visually breaking if it doesn't fit. shrink-0 on each trigger keeps tab widths
               stable rather than letting flex squeeze them illegibly. */}
-          <TabsPrimitive.List className="mb-6 flex gap-1 overflow-x-auto border-b border-border">
+          {/* Glass segmented-pill control (inspired_ui reskin), replacing the old underline
+              tabs — same overflow-x-auto/shrink-0 tablet safety net from T5.8. */}
+          <TabsPrimitive.List className="mb-6 flex gap-0.5 overflow-x-auto rounded-control border border-border bg-surface p-1">
             {TABS.map((t) => (
               <TabsPrimitive.Trigger
                 key={t}
                 value={t}
                 className={[
-                  "flex shrink-0 items-center gap-1.5 border-b-2 border-transparent px-4 py-2 text-sm text-text-dim",
+                  "flex shrink-0 items-center gap-1.5 rounded-control px-4 py-1.5 text-sm font-medium text-text-dim",
                   "transition-colors duration-hover hover:text-text",
-                  "data-[state=active]:border-accent data-[state=active]:text-text",
+                  "data-[state=active]:bg-surface-2 data-[state=active]:text-text",
                 ].join(" ")}
               >
                 {t}
                 {t === "Evidence" && documents ? (
-                  <span className="font-mono text-[10px] text-text-faint">{documents.length}</span>
+                  <span className="rounded-pill bg-bg/40 px-1.5 py-0.5 font-mono text-[10px] text-text-faint">
+                    {documents.length}
+                  </span>
                 ) : null}
                 {t === "Criteria" && criteria ? (
-                  <span className="font-mono text-[10px] text-text-faint">{criteria.length}</span>
+                  <span className="rounded-pill bg-bg/40 px-1.5 py-0.5 font-mono text-[10px] text-text-faint">
+                    {criteria.length}
+                  </span>
                 ) : null}
                 {t === "Drafts" && drafts && draftSectionCount > 0 ? (
-                  <span className="font-mono text-[10px] text-text-faint">{draftSectionCount}</span>
+                  <span className="rounded-pill bg-bg/40 px-1.5 py-0.5 font-mono text-[10px] text-text-faint">
+                    {draftSectionCount}
+                  </span>
                 ) : null}
               </TabsPrimitive.Trigger>
             ))}

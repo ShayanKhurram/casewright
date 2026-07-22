@@ -3,12 +3,17 @@
    a value that isn't here, the token system gets amended, not the screen. */
 
 :root {
-  /* Color */
-  --bg: #0c1118;
-  --surface: #121a24;
-  --surface-2: #18222e;
-  --hairline: rgba(255, 255, 255, 0.07);
-  --hairline-strong: rgba(255, 255, 255, 0.14);
+  /* Color — glass system (inspired_ui reskin): near-black base + translucent white glass
+     surfaces with backdrop-blur (applied globally to .bg-surface/.bg-surface-2 in index.css),
+     replacing the flat opaque card fills the dark system launched with. Semantic tokens
+     (accent/met/partial/gap/run below) are deliberately UNCHANGED — verdict/urgency/run-state
+     color coding stays, only the neutral chrome goes glass. */
+  --bg: #08080c;
+  --bg-radial: radial-gradient(ellipse 80% 60% at 50% -10%, rgba(120, 90, 150, 0.14) 0%, transparent 70%);
+  --surface: rgba(255, 255, 255, 0.04);
+  --surface-2: rgba(255, 255, 255, 0.07);
+  --hairline: rgba(255, 255, 255, 0.08);
+  --hairline-strong: rgba(255, 255, 255, 0.16);
   --text: #e8ecf2;
   --text-dim: #94a3b8;
   /* Brightened from the original #5b6b7f (T5.8 WCAG audit): as body text (mono timestamps,
@@ -51,9 +56,7 @@
      bare `var(--accent)` (a hex string) isn't decomposable — see tailwind.config.js, which
      wires these through `rgb(var(--x-rgb) / <alpha-value>)`. Keep every triple in sync with
      its hex value above if either ever changes. */
-  --bg-rgb: 12 17 24;
-  --surface-rgb: 18 26 36;
-  --surface-2-rgb: 24 34 46;
+  --bg-rgb: 8 8 12;
   --text-rgb: 232 236 242;
   --text-dim-rgb: 148 163 184;
   --text-faint-rgb: 124 139 161;
@@ -67,9 +70,9 @@
   --accent-text-rgb: 224 104 122;
   --run-text-rgb: 132 168 245;
 
-  /* Shape */
-  --radius-card: 8px;
-  --radius-control: 6px;
+  /* Shape — softened for the glass reskin (was 8px/6px; inspired_ui uses rounded-2xl/rounded-xl) */
+  --radius-card: 16px;
+  --radius-control: 12px;
   --radius-pill: 999px;
 
   /* Spacing scale */

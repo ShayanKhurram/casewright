@@ -729,6 +729,89 @@ after the T5.2 pi-drift incident below appended past it.)*
   app takes immediately. Worth remembering when live-verifying future features: test against
   old/idle state, not just the golden path you just created.
 
+### 2026-07-22 (Phase 6) — glass reskin (Claude, direct — user said "do it yourself")
+
+- User dropped an `inspired_ui/` folder (a Figma-make single-file mockup, `App.tsx`) showing a
+  "LexPath" demo with a monochrome glassmorphism look — near-black bg, translucent white-opacity
+  blurred cards, rounded-2xl, no color-coded status. Asked to recreate the current app's UI to
+  match. Before planning, asked two clarifying questions (real tradeoffs, not busywork): (1)
+  keep Phase 5's semantic verdict/urgency/run colors, or go fully monochrome like the mockup —
+  user chose to keep semantic color, glass treatment for neutrals only; (2) reskin the whole app
+  in phases, or just the screens the mockup directly shows (Dashboard/Cases/Clients) — user chose
+  whole app. Mid-research, user said "do it yourself" — took this out of the normal pi-build loop
+  (Claude implements directly this round, no pi delegation).
+- Recognized the existing dark-theme token system (`tokens.css` → `tailwind.config.js` →
+  `bg-surface`/`border-border`/`rounded-card` used everywhere) as the lever: retuning the tokens
+  themselves reskins every screen at once, rather than hand-editing ~25 component files. Changed
+  `--bg` to near-black + a radial-gradient body background; `--surface`/`--surface-2` from
+  opaque hex to fixed-alpha translucent white; added one global CSS rule giving every
+  `.bg-surface`/`.bg-surface-2` element real `backdrop-filter: blur(20px)`; bumped
+  `--radius-card`/`--radius-control` from 8px/6px to 16px/12px. Left all semantic tokens
+  (accent/met/partial/gap/run + WCAG-safe variants) untouched, per the user's answer and to avoid
+  re-litigating T5.8's contrast audit. See `PLAN.md` T6.1 for the full token diff.
+- Grepped first (not assumed) that no `bg-surface/NN` or `border-border/NN` opacity-modifier call
+  sites exist anywhere in the codebase before dropping the `rgb(var(...)/<alpha-value>)`
+  decomposable-channel pattern for `surface`/`surface-2` — confirmed safe.
+- Targeted, non-token edits: `Sidebar`/`Topbar` switched `bg-bg`→`bg-surface` so the shell chrome
+  reads as glass floating over the gradient (was flat opaque); added a `Monogram` translucent
+  initials-avatar to Dashboard's `CaseCard` plus a `hover:bg-surface-2` fill-lift, matching the
+  mockup's case-row treatment more closely.
+- **Actually verified in a browser this time** (T5.5-T5.8 explicitly couldn't — no browser tool
+  in-session then; `claude-in-chrome` is available now). Added a temporary `vite.config.ts`
+  `server.proxy` for `/api`→`http://localhost:8000` (the Vite dev server had no route to the
+  dockerized backend at all before this — left in place as a reusable dev convenience). Created a
+  throwaway firm via `python -m scripts.create_firm` inside the backend container (note: running
+  `python scripts/create_firm.py` directly fails with `ModuleNotFoundError: No module named
+  'app'` — Python puts the script's own directory on `sys.path[0]`, not cwd; `python -m
+  scripts.create_firm` is the working form). Logged in, screenshotted Login, empty Dashboard, the
+  New Case dialog (confirmed the backdrop blur is real — the dashboard visibly blurs behind the
+  modal), a populated Dashboard card, and the Case Workspace tab shell. All cohesive, semantic
+  colors intact. Not committed to git yet — left for the user to review the diff first.
+
+### 2026-07-22 (Phase 6, cont.) — user feedback: Docker image was stale, then round 2
+
+- User reported `localhost:8080` still looked unchanged. Diagnosed correctly on the first guess
+  but verified rather than assumed: the `frontend` Docker image had never been rebuilt after the
+  T6.1 edits — I'd only checked via the Vite dev server (port 5183), and `:8080` goes through
+  nginx to a separately-built image that still had the old bundle baked in. Rebuilt
+  (`docker compose build frontend && docker compose up -d frontend`) and re-verified with a
+  fresh browser session + a direct JS-context `fetch()` of the served stylesheet (checked for the
+  new `#08080c` bg value, absence of the old `#0c1118`) — confirmed the deployed asset was
+  correct before telling the user to refresh, rather than re-asserting the same claim.
+- User's actual next message wasn't confirmation the fix worked — it redirected the ask: "you
+  just applied the theme... take inspiration from the tabs view etc, something like a beautiful
+  loading component that shows llm thinking etc, introduce tabs." Read as: the token-only reskin
+  (T6.1) was too shallow — wanted `inspired_ui`'s *structural* patterns (its glass segmented
+  filter-pill row), not just its color/blur values, plus a genuinely upgraded loading experience.
+  Asked two clarifying questions rather than guessing which of the app's several tab-like
+  elements were meant: user chose "both" (Case Workspace's 6-tab bar AND Dashboard's filters get
+  pill treatment) and "upgrade the existing PipelineTracker" (not a new bolted-on spinner) for
+  the loading piece.
+- Built T6.2 (see `PLAN.md` for the full diff): segmented-pill tabs/filters, PipelineTracker glow
+  halo + spin icon + animated "thinking" dots. Verifying the PipelineTracker change in a browser
+  required an actual `running` agent run with populated fan-out progress — no
+  `ANTHROPIC_API_KEY` is configured in this environment, so no real run can reach that state.
+  Inserted a throwaway `agent_runs` row directly via SQL against the same disposable test case
+  from T6.1 (not a real firm's data), screenshotted it, then deleted the row immediately after.
+- **This live check caught a real, pre-existing layout bug** the token-only round couldn't have
+  surfaced (nothing had ever rendered the tracker with real progress data in a narrow container
+  before): the connector lines between pipeline nodes were `flex-1` with no minimum, so once the
+  tracker's natural width exceeded its container (`OverviewTab`'s two-column card), flex-shrink
+  crushed every connector to ~0px and adjacent node labels ran together with no visible gap.
+  Fixed by giving the `<ol>` `w-max` and the connectors a fixed `w-6` instead of `flex-1`. Rebuilt
+  the Docker image a second time and re-confirmed the fix at `:8080` before reporting done.
+- User's next message: the default OS horizontal scrollbar under the PipelineTracker (a direct
+  consequence of the `overflow-x-auto` wrapper) looked "fucking ugly." Fair — a bare browser
+  scrollbar with arrow buttons is a jarring, non-glass element sitting right under a translucent
+  card. Fixed with one global CSS rule targeting the literal `.overflow-x-auto` class (thin
+  `scrollbar-width`/`scrollbar-color` for Firefox, `::-webkit-scrollbar*` for Chrome/Edge, using
+  the existing `--hairline-strong` token) — the same blanket-class trick as the `.bg-surface`
+  backdrop-blur rule from T6.1, so it also quietly fixes the same problem on every other
+  `overflow-x-auto` spot in the app (Case Workspace's tab list, Evidence/RFE tables, the Drafts
+  three-pane) without touching those files. Rebuilt the Docker image a third time; re-inserted a
+  throwaway `agent_runs` row to force the tracker to overflow again, zoomed in on the scrollbar
+  specifically to confirm it's now a thin hairline bar, deleted the row.
+
 ## Known Issues / Open TODOs
 
 All four plan phases now have code-level completeness (see `PLAN.md`), and both major
@@ -818,3 +901,26 @@ live against a real model, not just mocked ones. What's left below is smaller an
   spec names — there's no data to show. Would need a backend schema addition
   (store/expose the original upload filename) if this is wanted; out of scope for a
   frontend-only re-skin round.
+- Phase 6 glass reskin only visually spot-checked Login/Dashboard/New-Case-dialog/Case-Workspace-
+  shell against an empty test case — Evidence/Criteria/Strategy/Drafts/RFE tab *bodies* with real
+  populated data weren't screenshotted. They inherit the token cascade automatically (same
+  `bg-surface`/`rounded-card` classes), but that's inference, not a look.
+- Font family was deliberately left as Source Serif 4 (display) + Inter (body) rather than
+  matching `inspired_ui`'s Inter-only look — a judgment call to preserve the existing legal-brand
+  identity, not confirmed with the user. Revisit if literal mockup typography turns out to
+  matter.
+- `vite.config.ts` now has a permanent dev-only `/api` proxy to `localhost:8000` (added so this
+  round's live browser verification was possible at all — there was previously no way to `npm
+  run dev` against the real backend). Harmless for prod (`vite build` ignores `server.*`), but
+  worth knowing it's there.
+- Left one throwaway firm/user in the dev database from this round's browser verification
+  (`ui-preview@firm.test` / firm "UI Preview Firm") — not cleaned up, since deleting rows wasn't
+  requested and the case data is not real.
+- The PipelineTracker "thinking" upgrade (glow/spin/dots) only touched the full stepper
+  (`OverviewTab`'s usage). The Dashboard `CaseCard`'s compact progress indicator (a plain 1px
+  fraction bar) wasn't given the same treatment — worth revisiting if the dashboard-level
+  indicator should feel equally alive.
+- Any future change to `PipelineTracker`'s layout should be checked against a *populated*
+  progress state in an actual narrow container (`OverviewTab`'s card), not just the two unit
+  tests (which only assert node labels are present, not layout/spacing) — this round found a
+  real squish bug that had been invisible to every prior check.
