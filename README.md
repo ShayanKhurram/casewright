@@ -1,6 +1,6 @@
-# Casewright
+# Casewright - Ai Agent helping Immigration Lawyers
 
-**An attorney-reviewed argumentation engine for O-1A / EB-1A immigration petitions and RFE
+**An attorney-reviewed argumentation  Agent built with deep harness engine for O-1A / EB-1A immigration petitions and RFE
 responses.**
 
 Casewright takes a beneficiary's case file — CV, awards, recommendation letters, prior filings —
