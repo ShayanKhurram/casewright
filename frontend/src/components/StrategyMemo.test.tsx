@@ -43,8 +43,8 @@ describe("StrategyMemoView", () => {
   it("shows a revision-requested decision distinctly from an approved one", () => {
     render(<StrategyMemoView memo={makeMemo({ attorney_decision: "revise" })} onGateDecision={vi.fn()} />);
     const badge = screen.getByText(/Decision: revision requested/);
-    expect(badge.className).toContain("verdict-partial");
-    expect(badge.className).not.toContain("verdict-met");
+    expect(badge.className).toContain("text-partial");
+    expect(badge.className).not.toContain("text-met");
   });
 
   it("calls onGateDecision with the entered notes on approve", async () => {

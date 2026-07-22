@@ -8,6 +8,22 @@ export interface CurrentUser {
   is_active: boolean;
 }
 
+/** Mirrors backend/app/models/case.py CASE_STATUSES — no endpoint exposes this list, so it's
+ * hardcoded here the same way DOCUMENT_KINDS already is below. */
+export const CASE_STATUSES = [
+  "intake",
+  "analyzing",
+  "strategy_review",
+  "drafting",
+  "draft_review",
+  "ready_to_file",
+  "filed",
+  "rfe_received",
+  "rfe_review",
+  "approved",
+  "denied",
+] as const;
+
 export interface Case {
   id: string;
   firm_id: string;
@@ -44,6 +60,15 @@ export interface Document {
   created_at: string;
 }
 
+/** Mirrors the `agent_runs.progress` JSONB shape written by
+ * backend/app/agents/runner.py's `_stream_with_progress` (T5.3). */
+export interface RunProgress {
+  current_node: string | null;
+  completed_nodes: string[];
+  node_timestamps: Record<string, { started_at?: string; finished_at?: string }>;
+  fan_out: Record<string, { done: number; total: number }>;
+}
+
 export interface AgentRun {
   id: string;
   case_id: string;
@@ -56,6 +81,7 @@ export interface AgentRun {
     sections?: { id: string; heading: string; status: string; confidence: number }[];
   };
   error: string | null;
+  progress: RunProgress;
   created_at: string;
   updated_at: string;
 }

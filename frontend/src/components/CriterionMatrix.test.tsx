@@ -23,13 +23,13 @@ describe("CriterionMatrix", () => {
     expect(screen.getByText("No criteria assessed yet.")).toBeInTheDocument();
   });
 
-  it("applies the verdict-met rail color for a met verdict", () => {
+  it("applies the met rail color for a met verdict", () => {
     render(<CriterionMatrix assessments={[makeAssessment({ id: "a1", verdict: "met" })]} />);
     const card = screen.getByText("eb1a.awards").closest("div.mb-3");
-    expect(card?.className).toContain("border-verdict-met");
+    expect(card?.className).toContain("border-l-met");
   });
 
-  it("applies the verdict-gap rail color for absent and weak verdicts", () => {
+  it("applies the gap rail color for absent and weak verdicts", () => {
     render(
       <CriterionMatrix
         assessments={[
@@ -38,8 +38,8 @@ describe("CriterionMatrix", () => {
         ]}
       />
     );
-    expect(screen.getByText("eb1a.judging").closest("div.mb-3")?.className).toContain("border-verdict-gap");
-    expect(screen.getByText("eb1a.membership").closest("div.mb-3")?.className).toContain("border-verdict-gap");
+    expect(screen.getByText("eb1a.judging").closest("div.mb-3")?.className).toContain("border-l-gap");
+    expect(screen.getByText("eb1a.membership").closest("div.mb-3")?.className).toContain("border-l-gap");
   });
 
   it("sorts cards alphabetically by criterion_key regardless of input order", () => {

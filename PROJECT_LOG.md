@@ -544,6 +544,65 @@ after the T5.2 pi-drift incident below appended past it.)*
   the brief — it's graph-specific, not a generic ui-kit primitive). **VERDICT: PASS**, no
   defects found. `PLAN.md` T5.4 marked `[x]`.
 
+### 2026-07-22 (final) — T5.5–T5.7: full screen-by-screen re-skin (Claude, direct — "don't use pi")
+
+- User explicitly directed this round to be built directly rather than delegated ("BUILD THE
+  NEXT TASKS YOURSELF DONT USE PI"), reversing the Claude-plans/pi-implements split used for
+  T5.2 and T5.4. Read every remaining light-themed screen and component first (Login, Dashboard,
+  CaseWorkspace + all 6 tabs, GateBanner, CriterionMatrix, StrategyMemo, AgentRunTimeline,
+  DeadlineBadge/Ring, plus their existing vitest files) before writing anything, the same
+  research step a build brief would otherwise have had to encode.
+- **New shared infrastructure built along the way** (not originally scoped as separate tasks,
+  but needed by more than one screen so built once): `lib/statusTone.ts` (one status→tone map
+  covering Case/AgentRun/DraftSection statuses, replacing `StatusPill`'s old hardcoded palette),
+  `lib/useStaggeredReveal.ts` (the progressive-reveal hook, reused by Criteria/Drafts/RFE),
+  `ui/Dialog.tsx` (Radix-backed, used by Dashboard's New Case flow and Evidence's source panel),
+  a `reveal-up` keyframe added to `tailwind.config.js` (wired through `var(--duration-reveal)`/
+  `var(--ease)` directly in the animation shorthand so it inherits the reduced-motion zeroing
+  from `tokens.css` automatically — no separate media query needed), and `types.ts` gained a
+  `RunProgress` type (moved out of `PipelineTracker.tsx`, which now imports it) plus a required
+  `progress` field on `AgentRun` now that T5.3's backend column is real, non-optional data.
+- **A real bug caught and fixed during the work, not after**: the first draft of `Dashboard.tsx`
+  rendered dark-token text/cards inside a root `<div>` with no background of its own, which
+  would have inherited `Shell.tsx`'s `<main>` `bg-paper` (light) underneath — dark text on a
+  light background, illegible. Caught before ever building, fixed by giving every top-level
+  migrated page (`Login`, `Dashboard`, `CaseWorkspace`) its own opaque `bg-bg` wrapper, exactly
+  the isolation strategy T5.1 had anticipated for the rollout period.
+- **Scope decisions made explicitly, not silently**: `GateBanner` was lifted from inside
+  `RFETab` to the `CaseWorkspace` shell level, but scoped to exclude `strategy_review` — that
+  gate already has a dedicated approve/revise UI built into `StrategyMemoView`, and showing a
+  second generic banner for the same decision would be two competing controls. The Drafts
+  three-pane's source panel doesn't show the plan's "anchor quote" (the `Citation` model has no
+  field for it — only `ExtractedFact` does) and shows citation metadata + a presigned link
+  instead; `AgentRunTimeline`'s humanized-error copy drops the plan's literal "retry the run
+  from where it stopped" phrasing since no retry-a-failed-run endpoint exists in this app —
+  promising a working retry that isn't there would be worse than a plain error message.
+  `DeadlineRing`'s urgent-deadline pulse uses Tailwind's stock `animate-pulse` (fixed 2s
+  duration, not tied to a token var) rather than inventing a bespoke reduced-motion carve-out
+  for one component — flagged in-code and left for T5.8's dedicated reduced-motion pass.
+- **End-of-rollout cleanup, verified rather than assumed**: once every screen was rewritten,
+  grepped all of `src/pages` and `src/components` for every legacy light-theme class name
+  (`text-ink`, `bg-paper`, `text-slate`, `border-hairline`, `bg-oxblood`, `verdict-*`) — the
+  search came back empty except `Shell.tsx`'s own deliberate `bg-paper` override, which is
+  exactly the confirmation needed to safely remove it (and `index.css`'s parallel legacy `body`
+  rule) — done in this same round, closing out the T5.1-era intermediate state cleanly instead
+  of leaving it as a dangling TODO.
+- Verified for real at each stage, not just once at the end: after every few files, re-ran
+  `npm run build` and `npm test` (14/14 throughout — two vitest files needed updates for the new
+  class names, `CriterionMatrix.test.tsx` and `StrategyMemo.test.tsx`, both updated to assert
+  the new token-based classes rather than the retired `verdict-*` ones) and grepped for hex.
+  At the end: a full `docker compose build frontend` + container recreate, a live login through
+  nginx against the same `uiverify@firm.test` test firm used in T5.1/T5.3, and real API calls
+  against a live O-1A case sitting at `strategy_review` (from T5.3's earlier live run) —
+  `/strategy` and `/criteria` (8 real assessments) confirmed the response shapes match what the
+  rewritten components consume, and `/documents`, `/drafts`, `/rfe` (all empty for this case)
+  confirmed the `EmptyState` paths are reachable.
+  Caveat, same as T5.1's: no browser/screenshot tool exists in this environment, so the actual
+  visual render (dark theme correctness, animation timing, three-pane layout on a real
+  viewport) has never been eyeballed — only build/type-check cleanliness, real API contracts,
+  and served-asset checks were verified. Worth a real visual pass (human or a future
+  screenshot-capable session) before this ships to an actual pilot firm.
+
 ## Known Issues / Open TODOs
 
 All four plan phases now have code-level completeness (see `PLAN.md`), and both major
@@ -610,3 +669,24 @@ live against a real model, not just mocked ones. What's left below is smaller an
   topology), but if a future graph change ever routes back into a fan-out node after an
   interrupt, `FAN_OUT_TOTALS` in `runner.py` will need a fallback (e.g. reading the total from
   checkpointed state rather than raw input) to avoid a silently-missing/zero total.
+- The T5.5-T5.7 re-skin (full UI dark-theme rollout) has never been visually verified in an
+  actual browser — this environment has no browser/screenshot tool. Everything was checked via
+  `npm run build`/`npm test`, hex grepping, and live API contract calls, which catch type/data
+  errors but not visual defects (contrast, spacing, animation timing/jank, the three-pane
+  Drafts layout at real viewport widths). Do a real visual pass before any pilot-firm usage.
+- `DeadlineRing`'s urgent-deadline pulse (redesign plan §5's "slow 2s pulse" for <14 days
+  remaining) uses Tailwind's stock `animate-pulse` utility, which has its own fixed 2s duration
+  hardcoded in Tailwind itself — unlike this app's other animations, it is NOT wired through a
+  `--duration-*` token var, so it does not yet respect `prefers-reduced-motion`. Flagged
+  in-code; T5.8's reduced-motion pass should either give it a token-driven duration or add an
+  explicit reduced-motion override.
+- Dashboard's "PipelineTracker-mini" progress strip (a 4px bar showing
+  `completed_nodes.length / topology.length`) is a simplification of the redesign plan's fuller
+  per-case mini-tracker — it shows overall fraction-complete, not the segmented per-node view
+  the plan describes. Reasonable given a dashboard card's size constraints, but worth reviewing
+  if the fuller version turns out to matter to users.
+- `Document` has no `filename` field in the schema (only `s3_key`, not exposed via the API), so
+  EvidenceTab's table and source panel omit the "filename" column the redesign plan's table
+  spec names — there's no data to show. Would need a backend schema addition
+  (store/expose the original upload filename) if this is wanted; out of scope for a
+  frontend-only re-skin round.

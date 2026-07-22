@@ -24,6 +24,7 @@ function makeRun(overrides: Partial<AgentRun> = {}): AgentRun {
       ],
     },
     error: null,
+    progress: { current_node: null, completed_nodes: [], node_timestamps: {}, fan_out: {} },
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
     ...overrides,

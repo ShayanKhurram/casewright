@@ -4,11 +4,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* body stays on the legacy light tokens until every screen is migrated (casewright-ui-
-   redesign-plan.md §10/§11's screen-at-a-time approach) — the new dark Shell sets its own
-   chrome backgrounds explicitly rather than relying on body, so this can't collide with it. */
+/* Every screen (T5.5–T5.7) now paints its own bg-bg wrapper rather than relying on body, so
+   body just carries the dark defaults directly — nothing left depends on the legacy paper/ink
+   tokens (see the empty grep for them across src/pages and src/components). */
 body {
-  @apply bg-paper text-ink font-sans;
+  @apply bg-bg text-text font-sans;
 }
 
 /* Route-transition progress bar (§4): a 2px accent bar, CSS-only, no JS timing dependency. */

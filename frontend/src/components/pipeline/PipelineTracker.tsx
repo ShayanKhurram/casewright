@@ -1,21 +1,12 @@
 import { Fragment, useEffect, useState } from "react";
 import { Check, X } from "lucide-react";
 
+import type { RunProgress } from "../../types";
 import {
   PETITION_TOPOLOGY,
   RFE_TOPOLOGY,
   type PipelineNode,
 } from "./graphTopology";
-
-/** Progress payload shape, mirroring the `agent_runs.progress` JSON column written by
- * backend/app/agents/runner.py's `_stream_with_progress`. `node_timestamps` values are ISO
- * timestamp strings (from langgraph debug-stream chunk timestamps). */
-export interface RunProgress {
-  current_node: string | null;
-  completed_nodes: string[];
-  node_timestamps: Record<string, { started_at?: string; finished_at?: string }>;
-  fan_out: Record<string, { done: number; total: number }>;
-}
 
 export interface PipelineTrackerProps {
   graph: "petition" | "rfe";

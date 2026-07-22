@@ -39,6 +39,9 @@ export type { ToastProviderProps } from "./ToastProvider";
 export { default as EmptyState } from "./EmptyState";
 export type { EmptyStateProps, EmptyStateAction } from "./EmptyState";
 
+export { default as Dialog } from "./Dialog";
+export type { DialogProps } from "./Dialog";
+
 export {
   SkeletonLine,
   SkeletonBlock,

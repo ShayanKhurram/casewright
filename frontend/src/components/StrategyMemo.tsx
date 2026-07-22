@@ -1,34 +1,35 @@
 import { useState } from "react";
 
 import { StrategyMemo } from "../types";
+import Button from "./ui/Button";
+import Pill from "./ui/Pill";
+import Textarea from "./ui/Textarea";
 
-function ChipList({ items, borderClass }: { items: string[]; borderClass: string }) {
+function RailedList({ items, tone }: { items: string[]; tone: "met" | "dim" }) {
   if (items.length === 0) return null;
+  const railClass = tone === "met" ? "border-l-met" : "border-l-border-strong";
   return (
-    <div className="flex flex-wrap gap-1">
+    <ul>
       {items.map((item, i) => (
-        <span
-          key={`${item}-${i}`}
-          className={`rounded border ${borderClass} px-1.5 py-0.5 font-mono text-xs text-slate`}
-        >
+        <li key={`${item}-${i}`} className={["mb-1 border-l-[3px] py-0.5 pl-2 text-sm text-text", railClass].join(" ")}>
           {item}
-        </span>
-      ))}
-    </div>
-  );
-}
-
-function WarningList({ items }: { items: string[] }) {
-  if (items.length === 0) return null;
-  return (
-    <ul className="list-disc pl-5 text-sm text-verdict-partial-text">
-      {items.map((item, i) => (
-        <li key={i}>{item}</li>
+        </li>
       ))}
     </ul>
   );
 }
 
+function RiskCard({ risk }: { risk: string }) {
+  return (
+    <div className="mb-2 rounded-card border-l-[3px] border-l-partial border-y border-r border-border bg-surface-2 p-2.5 text-sm text-text">
+      {risk}
+    </div>
+  );
+}
+
+/** Strategy memo as a document surface (redesign plan §8): generous padding, serif section
+ * heads, argue/abandon as railed lists, RFE-risk cards, and — when a decision is still pending
+ * — sticky gate controls at the bottom. */
 export default function StrategyMemoView({
   memo,
   onGateDecision,
@@ -37,101 +38,96 @@ export default function StrategyMemoView({
   onGateDecision?: (decision: "approve" | "revise", notes: string | null) => Promise<void>;
 }) {
   const [notes, setNotes] = useState("");
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState<"approve" | "revise" | null>(null);
 
   async function decide(decision: "approve" | "revise") {
-    setSubmitting(true);
+    setSubmitting(decision);
     try {
       await onGateDecision!(decision, notes || null);
     } finally {
-      setSubmitting(false);
+      setSubmitting(null);
     }
   }
 
   const showGate = !!onGateDecision && memo.attorney_decision === null;
 
   return (
-    <div className="rounded border border-hairline bg-paper p-4">
-      <div className="mb-2 flex items-baseline justify-between">
+    <div className="rounded-card border border-border bg-surface p-6">
+      <div className="mb-4 flex items-baseline justify-between gap-4">
         <div>
           {memo.recommended_category && (
-            <p className="font-display text-lg text-ink">{memo.recommended_category}</p>
+            <p className="font-display text-xl text-text">{memo.recommended_category}</p>
           )}
-          {memo.viability && <p className="text-sm text-slate">{memo.viability}</p>}
+          {memo.viability && <p className="mt-1 text-sm text-text-dim">{memo.viability}</p>}
         </div>
         {memo.attorney_decision && (
-          <span
-            className={`rounded border px-2 py-1 font-mono text-xs uppercase ${
-              memo.attorney_decision === "approve"
-                ? "text-verdict-met border-verdict-met"
-                : "text-verdict-partial-text border-verdict-partial"
-            }`}
-          >
-            Decision: {memo.attorney_decision === "approve" ? "approved" : "revision requested"}
-          </span>
+          <Pill
+            tone={memo.attorney_decision === "approve" ? "met" : "partial"}
+            label={memo.attorney_decision === "approve" ? "Decision: approved" : "Decision: revision requested"}
+          />
         )}
       </div>
 
-      {memo.narrative && (
-        <p className="mb-3 whitespace-pre-wrap text-sm text-ink">{memo.narrative}</p>
-      )}
+      {memo.narrative && <p className="mb-4 whitespace-pre-wrap text-sm leading-relaxed text-text">{memo.narrative}</p>}
 
       {memo.criteria_to_argue.length > 0 && (
-        <div className="mb-2">
-          <p className="mb-1 font-mono text-xs uppercase text-slate">Argue</p>
-          <ChipList items={memo.criteria_to_argue} borderClass="border-verdict-met" />
+        <div className="mb-4">
+          <h3 className="mb-1.5 font-display text-sm text-text">Argue</h3>
+          <RailedList items={memo.criteria_to_argue} tone="met" />
         </div>
       )}
       {memo.criteria_to_abandon.length > 0 && (
-        <div className="mb-2">
-          <p className="mb-1 font-mono text-xs uppercase text-slate">Abandon</p>
-          <ChipList items={memo.criteria_to_abandon} borderClass="border-hairline" />
+        <div className="mb-4">
+          <h3 className="mb-1.5 font-display text-sm text-text">Abandon</h3>
+          <RailedList items={memo.criteria_to_abandon} tone="dim" />
         </div>
       )}
 
       {memo.evidence_gaps.length > 0 && (
-        <div className="mb-2">
-          <p className="mb-1 font-mono text-xs uppercase text-slate">Evidence gaps</p>
-          <WarningList items={memo.evidence_gaps} />
+        <div className="mb-4">
+          <h3 className="mb-1.5 font-display text-sm text-text">Evidence gaps</h3>
+          {memo.evidence_gaps.map((gap, i) => (
+            <RiskCard key={i} risk={gap} />
+          ))}
         </div>
       )}
       {memo.rfe_risks.length > 0 && (
-        <div className="mb-2">
-          <p className="mb-1 font-mono text-xs uppercase text-slate">RFE risks</p>
-          <WarningList items={memo.rfe_risks} />
+        <div className="mb-4">
+          <h3 className="mb-1.5 font-display text-sm text-text">RFE risks</h3>
+          {memo.rfe_risks.map((risk, i) => (
+            <RiskCard key={i} risk={risk} />
+          ))}
         </div>
       )}
 
       {memo.attorney_notes && (
-        <p className="mt-2 text-sm text-slate">
-          <span className="font-mono text-xs uppercase">Notes:</span> {memo.attorney_notes}
+        <p className="mt-2 text-sm text-text-dim">
+          <span className="font-mono text-xs uppercase text-text-faint">Notes:</span> {memo.attorney_notes}
         </p>
       )}
 
       {showGate && (
-        <div className="mt-3 border-t border-hairline pt-3">
-          <textarea
+        <div className="sticky bottom-0 -mx-6 -mb-6 mt-4 border-t border-border bg-surface p-4">
+          <Textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Notes (optional)"
-            className="mb-2 w-full rounded border border-hairline px-2 py-1 text-sm"
             rows={2}
+            className="mb-2"
           />
           <div className="flex gap-2">
-            <button
-              disabled={submitting}
-              onClick={() => decide("approve")}
-              className="rounded bg-oxblood px-3 py-1 text-sm text-paper hover:opacity-90 disabled:opacity-50"
-            >
+            <Button size="sm" loading={submitting === "approve"} disabled={!!submitting} onClick={() => decide("approve")}>
               Approve
-            </button>
-            <button
-              disabled={submitting}
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              loading={submitting === "revise"}
+              disabled={!!submitting}
               onClick={() => decide("revise")}
-              className="rounded border border-hairline px-3 py-1 text-sm text-ink hover:bg-hairline disabled:opacity-50"
             >
               Request revision
-            </button>
+            </Button>
           </div>
         </div>
       )}

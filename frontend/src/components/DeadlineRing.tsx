@@ -14,20 +14,23 @@ export default function DeadlineRing({ deadline }: { deadline: string | null }) 
   // For overdue (days < 0) fraction is 1, showing the full/overdue state.
   const offset = circumference * (1 - fraction);
 
-  const stroke =
-    days < 0
-      ? "stroke-verdict-gap"
-      : days <= 14
-        ? "stroke-verdict-partial"
-        : "stroke-verdict-met";
+  // Color by remaining time per redesign plan §5: >30d dim, 14-30d partial, <14d gap (with a
+  // slow pulse via Tailwind's built-in `animate-pulse`). Uses Tailwind's own fixed-duration
+  // keyframe, not a token duration var, so it does NOT yet respect prefers-reduced-motion —
+  // flagged for T5.8's reduced-motion pass rather than solved ad hoc here.
+  const stroke = days < 0 || days <= 14 ? "stroke-gap" : days <= 30 ? "stroke-partial" : "stroke-text-dim";
+  const urgent = days < 0 || days <= 14;
 
   const label = days < 0 ? "OVERDUE" : `${days}d`;
 
   return (
-    <div className="inline-flex items-center justify-center" role="img" aria-label={`RFE response ${label}`}>
+    <div
+      className={["inline-flex items-center justify-center", urgent ? "animate-pulse" : ""].join(" ")}
+      role="img"
+      aria-label={`RFE response ${label}`}
+    >
       <svg width={48} height={48} viewBox="0 0 48 48">
-        <circle cx={24} cy={24} r={radius} fill="none" className="stroke-hairline" strokeWidth={4} />
-        {/* No transition/animation: static ring, satisfies prefers-reduced-motion trivially */}
+        <circle cx={24} cy={24} r={radius} fill="none" className="stroke-border" strokeWidth={4} />
         <circle
           cx={24}
           cy={24}
@@ -44,7 +47,7 @@ export default function DeadlineRing({ deadline }: { deadline: string | null }) 
           y={24}
           textAnchor="middle"
           dominantBaseline="central"
-          className="fill-ink font-mono"
+          className="fill-text font-mono"
           style={{ fontSize: days < 0 ? 9 : 11 }}
         >
           {label}

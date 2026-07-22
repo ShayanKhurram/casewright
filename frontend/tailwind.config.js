@@ -72,9 +72,19 @@ export default {
           "0%, 100%": { opacity: "0.03" },
           "50%": { opacity: "0.07" },
         },
+        "reveal-up": {
+          "0%": { opacity: "0", transform: "translateY(8px)" },
+          "100%": { opacity: "1", transform: "translateY(0)" },
+        },
       },
       animation: {
         shimmer: "shimmer 1.6s ease-in-out infinite",
+        // References the --duration-reveal/--ease CSS vars directly in the shorthand (Tailwind
+        // just inserts this string as the `animation` property value) so it automatically
+        // respects tokens.css's prefers-reduced-motion zeroing — no separate media query needed
+        // here. Used for progressive-reveal entrances (criterion cards, RFE objections, draft
+        // sections) per redesign plan §6.
+        "reveal-up": "reveal-up var(--duration-reveal) var(--ease) both",
       },
     },
   },

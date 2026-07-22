@@ -353,15 +353,54 @@ system and ui-kit being right.
       `assess_criterion`). Independently re-verified everything myself (not trusting the
       self-report): `npm run build` clean, `npm test` 14/14 unaffected, hex grep clean, and
       `git status` confirms only the 3 new files + the one permitted `ui/index.ts` barrel edit.
-- [ ] T5.5 (pi): Dashboard + Login re-skin, empty states, humanized error taxonomy (§7),
-      + `DashboardSkeleton` (exact card-grid shape) using T5.4's primitives.
-- [ ] T5.6 (pi): Case Workspace tabs — Overview, Evidence, Criteria (verdict rails +
-      confidence meters + scoreboard), Strategy (+ gate actions), + `CriteriaSkeleton`
-      (8–10 rail-carded rows) and progressive-reveal staggering (60ms, fade + 8px rise) as
-      criterion cards land in the matrix.
-- [ ] T5.7 (pi): Draft reviewer three-pane (section nav / body+citations / source panel) +
-      RFE workspace with DeadlineRing header + objection cards, + `DraftSkeleton` (heading +
-      paragraph masses with a right rail) and progressive-reveal for draft sections / RFE
-      objections as they're generated.
+- [x] T5.5 (Claude — user directed "build the next tasks yourself, don't use pi"): Login
+      (split panel, static hairline grid, humanized network-vs-credential error) + Dashboard
+      (search/status/category filters, New Case `Dialog`, Needs-review/Active/Filed grouping,
+      `DashboardSkeleton`, `EmptyState`) + `StatusPill` rewritten as a thin wrapper around the
+      ui-kit `Pill` + a new shared `lib/statusTone.ts` mapping every Case/AgentRun/DraftSection
+      status to a tone. Added a new `ui/Dialog.tsx` primitive (Radix, `data-[state]`-driven
+      transitions — no `tailwindcss-animate` plugin, it isn't installed) and wired
+      `ToastProvider` into `App.tsx` (T5.2 built it unwired; T5.6/T5.7 now consume `useToast()`
+      for real). · reviewed 2026-07-22: `npm run build` clean, `npm test` 14/14, hex grep
+      clean, live API contract checks against real `/cases`/`/runs/active` responses.
+- [x] T5.6 (Claude): Case Workspace shell rewritten with Radix `Tabs` (garnet active underline,
+      Evidence/Criteria/Drafts count badges sharing TanStack Query's cache with the tabs
+      themselves) and a `GateBanner` lifted to the workspace level for any *draft-review-shaped*
+      gate (`sections` payload) — deliberately excludes `strategy_review`, which keeps its own
+      dedicated gate UI inside `StrategyMemoView` rather than showing two competing
+      approve/revise controls for one decision. `CriterionMatrix` re-skinned (rail + confidence
+      meter bar + collapsible reasoning + progressive reveal via a new shared
+      `lib/useStaggeredReveal.ts` hook — reused again in T5.7), `CriteriaTab` scoreboard ("N of
+      3 required criteria met"), `StrategyMemo` as a document surface with railed argue/abandon
+      lists + sticky gate controls, `OverviewTab` two-column with a real `PipelineTracker` for
+      the active run + humanized `AgentRunTimeline` (collapsed technical-details block — the
+      plan's exact "retry from where it stopped" copy was NOT used since no retry-a-failed-run
+      endpoint exists; overclaiming an action that doesn't work would be worse than a plain
+      error), `EvidenceTab` re-skinned with a real right slide-over source panel (presigned URL
+      fetched on demand). · reviewed 2026-07-22: build/test/hex clean, live-verified against a
+      real O-1A case's `/strategy` and `/criteria` (8 assessments) responses through nginx.
+- [x] T5.7 (Claude): `DraftsTab` rebuilt as a genuine three-pane reviewer (section nav w/
+      status-dot + rail, center body + verification notes auto-expanded on `needs_attention` +
+      approve/revise bar wired to real `useToast()` success/error+retry, right source panel).
+      Simplification, disclosed rather than silently stubbed: the plan's "opens the cited
+      exhibit at the anchor quote" isn't implemented — `Citation` has no anchor-quote text field
+      (only `ExtractedFact` does), so the source panel shows citation metadata + a presigned
+      link instead. `RFETab` re-skinned, its own embedded `GateBanner` removed (now redundant
+      with T5.6's lifted one), objection cards with deficiency-type pill + collapsible rebuttal
+      plan + progressive reveal. `DeadlineRing`/`DeadlineBadge` re-skinned (ring's urgent pulse
+      uses Tailwind's stock `animate-pulse`, not a token duration — flagged honestly in-code as
+      not yet reduced-motion-aware, left for T5.8 rather than solved ad hoc). `DraftSkeleton`
+      added. **End-of-rollout cleanup**: grepped all of `src/pages`+`src/components` for every
+      legacy light-theme class (`text-ink`/`bg-paper`/`text-slate`/`border-hairline`/
+      `bg-oxblood`/`verdict-*`) — came back empty except `Shell.tsx`'s own deliberate override,
+      confirming every screen is migrated; removed `Shell.tsx`'s `bg-paper` `<main>` override
+      and `index.css`'s legacy `body` rule now that nothing depends on them.
+      · reviewed 2026-07-22: build/test/hex clean, live-verified via a full `docker compose
+      build frontend` + recreate, real login through nginx, and real `/documents`, `/drafts`,
+      `/rfe` responses (empty-state paths) for a live case. Caveat (same as T5.1): no
+      browser/screenshot tool in this environment, so the actual visual render was never
+      eyeballed — verified via build/type-check, live API contracts, and served-asset checks
+      only.
 - [ ] T5.8 (Claude): accessibility pass (WCAG AA per §9 — reuse the contrast-audit method
-      from Phase 3's T3.4), reduced-motion verification, tablet responsive check, polish sweep.
+      from Phase 3's T3.4), reduced-motion verification (including the `DeadlineRing`
+      `animate-pulse` gap flagged above), tablet responsive check, polish sweep.

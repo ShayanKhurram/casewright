@@ -3,11 +3,23 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "../lib/api";
 import { AgentRun, StrategyMemo as StrategyMemoType } from "../types";
 import StrategyMemoView from "./StrategyMemo";
+import { SkeletonBlock, SkeletonGate } from "./ui/Skeleton";
+
+function StrategySkeleton() {
+  return (
+    <div className="rounded-card border border-border bg-surface p-6">
+      <SkeletonBlock height="24px" width="30%" className="mb-3" />
+      <SkeletonBlock height="14px" width="100%" className="mb-1.5" />
+      <SkeletonBlock height="14px" width="90%" className="mb-1.5" />
+      <SkeletonBlock height="14px" width="60%" />
+    </div>
+  );
+}
 
 export default function StrategyTab({ caseId }: { caseId: string }) {
   const queryClient = useQueryClient();
 
-  const { data: memo, error } = useQuery({
+  const { data: memo, error, isLoading } = useQuery({
     queryKey: ["strategy", caseId],
     queryFn: () => apiFetch<StrategyMemoType>(`/cases/${caseId}/strategy`),
     retry: false,
@@ -35,11 +47,12 @@ export default function StrategyTab({ caseId }: { caseId: string }) {
   }
 
   if (error) {
-    return <p className="text-sm text-slate">No strategy memo yet — run petition analysis first.</p>;
-  }
-  if (!memo) {
-    return <p className="text-sm text-slate">Loading…</p>;
+    return <p className="text-sm text-text-dim">No strategy memo yet — run petition analysis first.</p>;
   }
 
-  return <StrategyMemoView memo={memo} onGateDecision={gateRun ? handleGateDecision : undefined} />;
+  return (
+    <SkeletonGate loading={isLoading || !memo} skeleton={<StrategySkeleton />}>
+      {memo ? <StrategyMemoView memo={memo} onGateDecision={gateRun ? handleGateDecision : undefined} /> : <div />}
+    </SkeletonGate>
+  );
 }
