@@ -670,7 +670,7 @@ file sets overlap across tasks): T7.1 → T7.4 → T7.2 → T7.3 → T7.5.
       graph test using the existing `_fake_call_structured` monkeypatch convention from
       `test_petition_graph.py`); the PipelineTracker's new toggle reveals a scrolling text feed
       that updates as `progress` refetches; toggle is collapsed by default so it doesn't change
-      the tracker's existing default appearance. · reviewed 2026-07-22 @ <sha-pending> (backend:
+      the tracker's existing default appearance. · reviewed 2026-07-22 @ b93136d (backend:
       full `pytest -q` — 34/34 — run inside the backend container after copying in the updated
       `runner.py`; frontend: `npm run build`/`npm test` clean; verified live via a throwaway
       `agent_runs` row with a populated `narration_log` — the "Details ▾" toggle revealed the

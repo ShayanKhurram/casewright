@@ -839,6 +839,27 @@ tasks for safe parallel pi sessions).
   route — a "Tabs" group appears whose "Strategy" item navigates to `?tab=Strategy` and switches
   the active tab. Stamped `[x]` in `PLAN.md` at commit `5ada980`.
 
+- **T7.4 (pi, one round, no re-guide needed): live agent theater narration feed.** Brief
+  specified a `NODE_NARRATIONS` lookup dict in `runner.py` (touching only that one backend file,
+  not the graph node bodies), an accumulating `narration_log` array in the `progress` JSONB
+  written by `_stream_with_progress`, and a collapsed-by-default "Details" toggle on
+  `PipelineTracker` revealing the scrolling feed. pi delivered exactly the 5 files scoped. One
+  correct judgment call not fully nailed down in the brief: for `assess_criterion`'s fan-out, the
+  per-branch `criterion_key` needed for the "Assessing X criterion…" text isn't on the graph's
+  top-level `input_` (only `visa_category` lives there) — pi correctly found it on the debug
+  event's `payload["input"]` instead (the `Send`'s per-branch input dict, confirmed against
+  `petition_graph.py`'s `Send("assess_criterion", {...,"criterion_key": ck})` call), falling back
+  to the generic template otherwise, exactly as the brief allowed. Two purely cosmetic nits in
+  the diff (one under-indented block inside `PipelineTracker.tsx`'s new wrapper `<div>`, a missing
+  trailing newline) — not functional defects, not worth a re-guide round for.
+  Verified independently: full backend `pytest -q` (34/34) run inside the `backend` container
+  after copying in the updated `runner.py`; frontend `npm run build`/`npm test` clean. Verified
+  live, not just build/test: rebuilt the frontend Docker image, inserted a throwaway `agent_runs`
+  row (case: the same "Ada Lovelace" test case from T7.1) with a hand-written 7-entry
+  `narration_log` covering intake/profile/two assess_criterion cycles, confirmed the "Details ▾"
+  toggle reveals the full chronological feed with the per-criterion text rendering correctly, then
+  deleted the row. Stamped `[x]` in `PLAN.md` at commit `b93136d`.
+
 ## Known Issues / Open TODOs
 
 All four plan phases now have code-level completeness (see `PLAN.md`), and both major
