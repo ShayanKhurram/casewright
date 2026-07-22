@@ -35,7 +35,50 @@ minimal review UI. Exit criterion: real RFE notice in → verified rebuttal draf
 
 **Phase 1 verified end-to-end 2026-07-22**: full Docker stack rebuild → seed knowledge (18/4/3) → create firm → upload a real RFE notice PDF (native text extracted, exhibit label assigned, presigned URL fetchable) → start an RFE run with no `ANTHROPIC_API_KEY` configured and confirm it fails gracefully (`status=failed`, clear error, no hang) rather than claiming success. Graph mechanics (parse → plan → draft → verify → gate → finalize, revision loop, checkpointing) verified separately with a mocked LLM: 16/16 backend tests pass, ruff/mypy clean, frontend builds clean. See `PROJECT_LOG.md` for the two defects this exposed that unit tests didn't catch.
 
-## Phase 2 — Petition engine (not started)
+## Phase 2 — Petition engine
+
+Intake/profile/eligibility fan-out, strategy + gate, drafting, full graph. Exit criterion: full
+case (documents in → strategy memo → drafts), both gates working. Heavy reuse of Phase 1's
+runner/verification/LLM-router infrastructure — only the graph and its nodes are new.
+
+- [ ] T2.1 (Claude): `app/agents/petition_graph.py` — `PetitionState` (case_id, firm_id,
+      visa_category, `assessed_criteria: Annotated[list, operator.add]` reduce channel,
+      strategy_decision/notes, review_decision/notes, revision_round) and graph wiring:
+      `START → intake → profile → [Send fan-out over 8 O-1A / 10 EB-1A criteria] →
+      assess_criterion → strategy → ⏸ strategy_gate → drafting → verification → ⏸ review_gate →
+      finalize → END`, with bounded revision loops (strategy_gate revise → strategy;
+      review_gate revise → drafting; MAX_REVISION_ROUNDS=2, same constant as Phase 1). The
+      `Send`-based fan-out is the one genuinely new LangGraph mechanic vs. Phase 1's linear RFE
+      graph — kept with Claude because getting the reduce-channel join wrong is the kind of bug
+      that's hard to catch from outside. Acceptance: mocked-LLM graph test (pattern from
+      `tests/test_rfe_graph.py`) verifies fan-out joins before `strategy` runs, both gates
+      pause/resume correctly, and both revision loops respect the round cap.
+- [ ] T2.2 (Claude): node bodies — `intake` (fast tier: extract `extracted_facts` rows with
+      page/quote anchors from each non-`rfe_notice` document, delete-then-insert per document
+      for idempotency), `profile` (reasoning: synthesize facts into `Case.profile` JSONB —
+      education, career, headline achievements), `assess_criterion` (reasoning: retrieve
+      criterion standard + patterns via `app/services/retrieval.py`, evaluate as a skeptical
+      officer, delete-then-insert upsert into `criterion_assessments`), `strategy` (reasoning:
+      consume the matrix, write `strategy_memos`, set `case.status="strategy_review"`),
+      `drafting` (reasoning: one `DraftSection` per criterion in `criteria_to_argue`, same
+      citation/grounding pattern as `draft_rfe_node`), `finalize` (`case.status="ready_to_file"`,
+      `BillingEvent(event_type="petition_package")`). Acceptance: same mocked-LLM test as T2.1
+      exercises every node; `verify_section` is reused unchanged for verification.
+- [ ] T2.3 (pi): API — `POST /cases/{id}/runs/petition`, `GET /cases/{id}/criteria`,
+      `GET /cases/{id}/strategy` — mirrors `app/api/runs.py`/`rfe.py` patterns exactly (firm
+      scoping via `get_case_scoped`, audit on start). Depends on T2.1's `PetitionState` shape
+      being final before starting. Acceptance: live smoke test (once Docker is available)
+      mirroring Phase 1's — start a run, confirm firm-scoping, confirm graceful failure without
+      an API key.
+- [ ] T2.4 (pi): frontend pull-forward from Phase 3 — `CriterionMatrix` (the signature screen:
+      one card per criterion, oxblood/verdict-colored left-edge "verdict rail" per §9, verdict +
+      confidence + reasoning) and `StrategyMemo` (memo body + `strategy_gate` approve/revise,
+      reusing the existing `GateBanner` pattern) components, built against the known
+      `criterion_assessments`/`strategy_memos` schemas (Phase 0) as typed props — genuinely
+      independent of T2.1–T2.3 since it only needs the data shape, not a live endpoint.
+      Acceptance: `npm run build` clean, components render against fixture data in isolation
+      (no live API needed yet — wiring into `CaseWorkspace` happens once T2.3 lands).
+
 ## Phase 3 — Product UI (not started)
 ## Phase 4 — Pilot hardening (not started)
 
