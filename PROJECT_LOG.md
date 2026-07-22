@@ -134,6 +134,40 @@ Tests: `cd backend && pytest` (needs a reachable Postgres — `docker compose up
   gap for Phase 2. Do that check before treating Phase 2 as pilot-ready. If Docker instability
   recurs on this machine, check for a pileup of stray docker CLI processes first before
   assuming the daemon itself is broken.
+- **The Docker issue recurred a second and third time** on Phase 3 attempts (same near-zero-CPU
+  wedge signature, this time specifically in `docker compose build` — `docker ps` and non-build
+  compose operations, e.g. starting the already-pulled `minio` image, worked fine throughout,
+  isolating the problem to the image-build path specifically). Tried `DOCKER_BUILDKIT=0` to rule
+  out a BuildKit-specific bug — same wedge, so it's not BuildKit-specific. Asked the user how to
+  proceed rather than keep burning cycles on infrastructure outside this session's control; they
+  chose to continue with test-level verification and accept the deploy-check gap for now.
+- Built Phase 3 (Product UI) with a genuine Claude/pi split, continuing the pattern from Phase 2.
+  pi built `Shell` (nav, JWT-decoded firm/role display, sign-out), `AgentRunTimeline`,
+  `OverviewTab` (beneficiary profile + run timeline, defensively typed against the untyped
+  `case.profile` JSON blob), and `DeadlineRing` (a real SVG progress ring replacing the Phase 1
+  `DeadlineBadge` text countdown, static/unanimated so `prefers-reduced-motion` is trivially
+  satisfied). One small defect on review: an unused `color` variable applied to an SVG element's
+  className where nothing inherited `currentColor` from it — dead code, removed; otherwise clean.
+  Claude built the frontend test infrastructure (vitest + RTL, new tooling worth setting up
+  deliberately rather than delegating blind), a first real test suite, and — the most valuable
+  part of this round — an actual WCAG AA contrast audit of the plan's §9 verdict palette rather
+  than a cosmetic "looks fine" pass. Computed relative luminance and contrast ratios by hand for
+  every verdict color against its actual usage background and found two real failures: (1)
+  `verdict-partial` (#B0770A, amber) is 3.7:1 on `paper` — passes WCAG's 3:1 threshold for
+  borders/UI components but fails the 4.5:1 threshold that applies to actual body text, and it
+  was being used as text color in five places (CriterionMatrix's gaps note, StrategyMemo's
+  warning lists and decision badge, StatusPill's revision/waiting badges, DeadlineBadge); added
+  `verdict-partial-text` (#8F6208, 5.2:1) for those, kept the brand amber for borders/pills. (2)
+  `Shell`'s user-info text used the standard secondary-text token (`slate`) on its dark `bg-ink`
+  header — `slate` on `ink` is ~2.9:1, which fails AA even for large text; switched to
+  `hairline` (~12.7:1 on `ink`), an existing token, no new one needed. Writing the GateBanner
+  test also surfaced an unrelated but real bug: `decide()` had no error handling, so a failed
+  gate request (e.g. hitting the 409 when a run already moved past `waiting_review`) became a
+  silent unhandled promise rejection — fixed with the same catch+setError pattern used
+  everywhere else data gets mutated in this app.
+- T3.5 (the actual "attorney runs a case end-to-end through the UI" walkthrough) is blocked on
+  the Docker issue above — it needs a live stack, not component-level tests. Left undone rather
+  than faked.
 
 ### 2026-07-21
 
@@ -158,17 +192,20 @@ Tests: `cd backend && pytest` (needs a reachable Postgres — `docker compose up
 
 ## Known Issues / Open TODOs
 
-- Phases 3–4 (product UI, pilot hardening) are not started — see `PLAN.md`.
-- **Phase 2 has not had a live Docker Compose smoke test** (Docker Desktop instability — see
-  2026-07-22 timeline entry). Test-level verification is solid (real Postgres, real graph
-  execution, mocked LLM only), but "deploys and runs for real" is unconfirmed for this phase
-  specifically, unlike Phase 0/1. Do this before pilot-readiness claims for the petition engine.
+- Phase 4 (pilot hardening) is not started — see `PLAN.md`.
+- **No live Docker Compose smoke test since Phase 1** (Docker Desktop's build pipeline has been
+  wedged for the rest of this session — see 2026-07-22 timeline). Phases 2 and 3 both have solid
+  test-level verification (real Postgres, real graph execution or component tests, mocked LLM
+  only) but not the "deploys and runs for real" check that Phase 0/1 got. Phase 3's T3.5 (the
+  actual attorney-runs-a-case-through-the-UI walkthrough) is explicitly blocked on this. Do a
+  full live-stack pass across Phases 2–3 before any pilot-readiness claim.
 - `audit_log` immutability relies on a trigger rather than a separate non-owner DB role; revisit
   if a compliance review specifically wants privilege-based (not trigger-based) enforcement.
-- Frontend has no test coverage yet (component suite built incrementally per phase, not with
-  its own tests); Phase 3 is where the real test suite lands, along with the full theme
-  (verdict rails now exist on CriterionMatrix/DraftsTab, but §9's full component inventory —
-  DeadlineRing as an actual SVG ring rather than a badge, etc. — isn't complete).
+- Frontend accessibility: WCAG AA contrast has been audited and fixed for the verdict palette
+  (see 2026-07-22 timeline). Not yet done: a systematic keyboard-navigation walkthrough (only
+  confirmed that no component strips the default focus outline — that's a floor, not a
+  deliberate pass) and real tablet-viewport testing (button groups use `flex-wrap`, but no
+  breakpoint-specific layout work exists anywhere in the app yet).
 - LLM-dependent nodes (all reasoning/fast-tier nodes in both graphs, plus verification's
   fact-check) are only tested with a mocked LLM — there is no `ANTHROPIC_API_KEY` in this dev
   environment, so a real end-to-end run (real documents in, real drafted output out) has not
@@ -189,3 +226,7 @@ Tests: `cd backend && pytest` (needs a reachable Postgres — `docker compose up
   `criteria_to_argue` can change between draft versions. Not a bug (each redraft correctly
   reflects the latest strategy), but worth knowing: draft version N and N+1 aren't necessarily
   arguing the same set of criteria.
+- Frontend test coverage exists now (vitest + RTL, 14 tests) but is intentionally narrow —
+  GateBanner, CriterionMatrix, StrategyMemo only, per the plan's "highest-value components"
+  scoping. Shell, OverviewTab, AgentRunTimeline, DeadlineRing, and every data-fetching tab
+  component (EvidenceTab, CriteriaTab, StrategyTab, DraftsTab, RFETab) have zero test coverage.
