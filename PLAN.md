@@ -156,7 +156,7 @@ built and self-tested (synthetic fixtures, scoring-logic unit tests), not an act
       `docker exec`, breaking `pg_restore`'s `-d`/file argument — fixed with `MSYS_NO_PATHCONV=1`.
 - [x] T4.4 (pi): precedent ingestion (`scripts/ingest_precedent.py`) — chunks a plain-text
       precedent document, embeds each chunk, inserts firm-scoped `KnowledgeChunk` rows (reuses
-      Phase 1's tenant-scoped retrieval unchanged) · reviewed 2026-07-22 @ TBD. Reviewed the
+      Phase 1's tenant-scoped retrieval unchanged) · reviewed 2026-07-22 @ cf357c9. Reviewed the
       diff: clean, correct firm-existence validation before ingesting, sensible chunking/length
       filtering. pi's own self-check was `py_compile` + manual trace only — no actual DB test —
       so Claude added the missing cross-firm retrieval test
