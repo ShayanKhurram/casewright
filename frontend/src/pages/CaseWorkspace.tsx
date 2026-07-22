@@ -5,18 +5,19 @@ import { useParams } from "react-router-dom";
 import CriteriaTab from "../components/CriteriaTab";
 import DraftsTab from "../components/DraftsTab";
 import EvidenceTab from "../components/EvidenceTab";
+import OverviewTab from "../components/OverviewTab";
 import RFETab from "../components/RFETab";
 import StatusPill from "../components/StatusPill";
 import StrategyTab from "../components/StrategyTab";
 import { apiFetch } from "../lib/api";
 import { Case } from "../types";
 
-const TABS = ["Evidence", "Criteria", "Strategy", "Drafts", "RFE"] as const;
+const TABS = ["Overview", "Evidence", "Criteria", "Strategy", "Drafts", "RFE"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function CaseWorkspace() {
   const { caseId } = useParams<{ caseId: string }>();
-  const [tab, setTab] = useState<Tab>("Evidence");
+  const [tab, setTab] = useState<Tab>("Overview");
 
   const { data: caseData } = useQuery({
     queryKey: ["case", caseId],
@@ -50,6 +51,7 @@ export default function CaseWorkspace() {
         ))}
       </div>
 
+      {tab === "Overview" && caseData && <OverviewTab caseId={caseId} caseData={caseData} />}
       {tab === "Evidence" && <EvidenceTab caseId={caseId} />}
       {tab === "Criteria" && <CriteriaTab caseId={caseId} />}
       {tab === "Strategy" && <StrategyTab caseId={caseId} />}

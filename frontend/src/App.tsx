@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
+import Shell from "./components/Shell";
 import { getToken } from "./lib/api";
 import CaseWorkspace from "./pages/CaseWorkspace";
 import Dashboard from "./pages/Dashboard";
@@ -17,7 +18,9 @@ export default function App() {
         path="/"
         element={
           <RequireAuth>
-            <Dashboard />
+            <Shell>
+              <Dashboard />
+            </Shell>
           </RequireAuth>
         }
       />
@@ -25,7 +28,9 @@ export default function App() {
         path="/cases/:caseId"
         element={
           <RequireAuth>
-            <CaseWorkspace />
+            <Shell>
+              <CaseWorkspace />
+            </Shell>
           </RequireAuth>
         }
       />

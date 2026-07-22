@@ -3,7 +3,7 @@ import { useState } from "react";
 
 import { apiFetch } from "../lib/api";
 import { AgentRun, Document, RFENotice } from "../types";
-import DeadlineBadge from "./DeadlineBadge";
+import DeadlineRing from "./DeadlineRing";
 import GateBanner from "./GateBanner";
 import StatusPill from "./StatusPill";
 
@@ -77,7 +77,7 @@ export default function RFETab({ caseId }: { caseId: string }) {
 
       {notices?.map((notice) => (
         <div key={notice.id} className="mb-4 rounded border border-hairline p-4">
-          <DeadlineBadge deadline={notice.response_deadline} />
+          <DeadlineRing deadline={notice.response_deadline} />
           {notice.summary && <p className="mt-2 text-sm text-ink">{notice.summary}</p>}
           <ul className="mt-3 space-y-2">
             {notice.objections.map((o) => (

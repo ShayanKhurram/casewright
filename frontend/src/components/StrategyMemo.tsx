@@ -21,7 +21,7 @@ function ChipList({ items, borderClass }: { items: string[]; borderClass: string
 function WarningList({ items }: { items: string[] }) {
   if (items.length === 0) return null;
   return (
-    <ul className="list-disc pl-5 text-sm text-verdict-partial">
+    <ul className="list-disc pl-5 text-sm text-verdict-partial-text">
       {items.map((item, i) => (
         <li key={i}>{item}</li>
       ))}
@@ -64,7 +64,7 @@ export default function StrategyMemoView({
             className={`rounded border px-2 py-1 font-mono text-xs uppercase ${
               memo.attorney_decision === "approve"
                 ? "text-verdict-met border-verdict-met"
-                : "text-verdict-partial border-verdict-partial"
+                : "text-verdict-partial-text border-verdict-partial"
             }`}
           >
             Decision: {memo.attorney_decision === "approve" ? "approved" : "revision requested"}

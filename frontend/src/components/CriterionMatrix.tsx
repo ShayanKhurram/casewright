@@ -45,7 +45,7 @@ function CriterionCard({ assessment }: { assessment: CriterionAssessment }) {
         <p className="text-sm text-ink">{assessment.reasoning.analysis}</p>
       )}
       {assessment.reasoning.gaps && (
-        <p className="text-sm text-verdict-partial">{assessment.reasoning.gaps}</p>
+        <p className="text-sm text-verdict-partial-text">{assessment.reasoning.gaps}</p>
       )}
       {assessment.evidence_refs.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">
