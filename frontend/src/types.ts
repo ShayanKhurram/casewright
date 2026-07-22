@@ -96,7 +96,7 @@ export interface AgentRun {
   // predates T5.3 (or that failed before _stream_with_progress ever wrote to it) genuinely has
   // an empty/partial object here — this type is deliberately honest about that so consumers are
   // forced to handle it (via lib/runProgress.ts's normalizeProgress), rather than assuming a
-  // full shape and crashing on real production data. See that incident in PROJECT_LOG.md.
+  // full shape and crashing on real production data. See that incident in docs/internal/PROJECT_LOG.md.
   progress: Partial<RunProgress>;
   created_at: string;
   updated_at: string;
@@ -211,4 +211,38 @@ export interface CaseQAResponse {
   answer: string;
   grounded: boolean;
   citations: QACitation[];
+}
+
+/** Phase 8, T8.4 — mirrors backend/app/schemas/rollup.py. Client is a computed roll-up over
+ * `cases.beneficiary_name`, not a real entity (see docs/internal/PLAN.md's Phase 8 header, deviation #1). */
+export interface Client {
+  beneficiary_name: string;
+  case_count: number;
+  case_ids: string[];
+  most_urgent_status: string;
+  visa_categories: string[];
+}
+
+export interface DocumentWithCase extends Document {
+  beneficiary_name: string;
+}
+
+export interface Deadline {
+  case_id: string;
+  beneficiary_name: string;
+  kind: "filing" | "rfe_response";
+  date: string;
+  source_id: string | null;
+}
+
+/** Phase 8, T8.5 — mirrors backend/app/schemas/audit.py `AuditLogOut`. Firm-scoped newest-first
+audit feed from `GET /audit-log`; powers the NotificationBell and the Overview recent-activity
+strip. `detail` is opaque JSONB written by `backend/app/services/audit.py`'s call sites. */
+export interface AuditLogEntry {
+  id: string;
+  at: string;
+  actor: string;
+  action: string;
+  case_id: string | null;
+  detail: Record<string, unknown>;
 }

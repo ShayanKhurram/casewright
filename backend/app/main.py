@@ -8,7 +8,7 @@ import structlog
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import assessment, auth, cases, documents, drafts, health, qa, rfe, runs
+from app.api import assessment, audit, auth, cases, deadlines, documents, drafts, health, qa, rfe, rollups, runs
 from app.config import get_settings
 from app.logging_config import configure_logging
 from app.services.storage import ensure_bucket
@@ -62,8 +62,12 @@ app.include_router(health.router, prefix="/api")
 app.include_router(auth.router, prefix="/api")
 app.include_router(cases.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")
+app.include_router(documents.firmwide_router, prefix="/api")
 app.include_router(runs.router, prefix="/api")
 app.include_router(rfe.router, prefix="/api")
 app.include_router(drafts.router, prefix="/api")
 app.include_router(assessment.router, prefix="/api")
 app.include_router(qa.router, prefix="/api")
+app.include_router(rollups.router, prefix="/api")
+app.include_router(deadlines.router, prefix="/api")
+app.include_router(audit.router, prefix="/api")

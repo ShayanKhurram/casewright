@@ -13,10 +13,15 @@ from app.db import get_db
 from app.models.case import DOCUMENT_KINDS, Case, Document
 from app.models.tenant import User
 from app.schemas.document import DocumentOut, DocumentUrlOut
+from app.schemas.rollup import DocumentWithCaseOut
 from app.services import audit, storage
 from app.services.document_processing import extract_text
 
 router = APIRouter(prefix="/cases", tags=["documents"])
+
+# Separate router (own prefix, no /cases collision) for the firm-wide listing — the first
+# document endpoint that isn't scoped under a single case. Registered separately in main.py.
+firmwide_router = APIRouter(prefix="/documents", tags=["documents"])
 
 
 async def _next_exhibit_label(db: AsyncSession, case_id: uuid.UUID) -> str:
@@ -97,3 +102,34 @@ async def list_documents(
 async def get_document_url(document: Document = Depends(get_document_scoped)) -> DocumentUrlOut:
     url = await storage.presigned_url(document.s3_key)
     return DocumentUrlOut(url=url)
+
+
+@firmwide_router.get("", response_model=list[DocumentWithCaseOut])
+async def list_all_documents(
+    case_id: uuid.UUID | None = None,
+    kind: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[DocumentWithCaseOut]:
+    if kind is not None and kind not in DOCUMENT_KINDS:
+        raise HTTPException(status_code=422, detail=f"kind must be one of {DOCUMENT_KINDS}")
+
+    query = (
+        select(Document, Case)
+        .join(Case, Case.id == Document.case_id)
+        .where(Case.firm_id == current_user.firm_id)
+        .order_by(Document.created_at.desc())
+    )
+    if case_id is not None:
+        query = query.where(Document.case_id == case_id)
+    if kind is not None:
+        query = query.where(Document.kind == kind)
+
+    result = await db.execute(query)
+    return [
+        DocumentWithCaseOut(
+            **DocumentOut.model_validate(document).model_dump(),
+            beneficiary_name=case.beneficiary_name,
+        )
+        for document, case in result.all()
+    ]

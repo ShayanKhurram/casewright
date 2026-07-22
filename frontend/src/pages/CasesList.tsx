@@ -1,12 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FolderOpen, Plus, Search } from "lucide-react";
 import { FormEvent, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 
+import CaseRow from "../components/CaseRow";
 import DashboardSkeleton from "../components/DashboardSkeleton";
-import DeadlineBadge from "../components/DeadlineBadge";
-import HealthDial from "../components/HealthDial";
-import StatusPill from "../components/StatusPill";
 import Button from "../components/ui/Button";
 import Dialog from "../components/ui/Dialog";
 import EmptyState from "../components/ui/EmptyState";
@@ -15,19 +12,9 @@ import Label from "../components/ui/Label";
 import Select from "../components/ui/Select";
 import { SkeletonGate } from "../components/ui/Skeleton";
 import { apiFetch } from "../lib/api";
-import { normalizeProgress } from "../lib/runProgress";
+import { groupOf } from "../lib/caseGroups";
 import { humanizeStatus } from "../lib/statusTone";
 import { ActiveRun, Case, CASE_STATUSES } from "../types";
-import { PETITION_TOPOLOGY, RFE_TOPOLOGY } from "../components/pipeline/graphTopology";
-
-const NEEDS_REVIEW = new Set(["strategy_review", "draft_review", "rfe_review"]);
-const CLOSED = new Set(["filed", "approved", "denied"]);
-
-function groupOf(status: string): "review" | "closed" | "active" {
-  if (NEEDS_REVIEW.has(status)) return "review";
-  if (CLOSED.has(status)) return "closed";
-  return "active";
-}
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All statuses" },
@@ -36,79 +23,14 @@ const STATUS_OPTIONS = [
 
 const CATEGORIES = ["All", "O-1A", "EB-1A"] as const;
 
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase() ?? "")
-    .join("");
-}
-
-/** Glass monogram avatar (inspired_ui reskin) — a translucent circle, not a colored one, so it
- * doesn't compete with the semantic status/urgency colors the redesign kept (§ StatusPill/Pill). */
-function Monogram({ name }: { name: string }) {
+/** List panel of CaseRows (Phase 8, T8.3) — the list analogue of the former CaseCard grid:
+ * a `divide-y divide-border rounded-card border border-border bg-surface` panel of `CaseRow`s,
+ * matching the Overview's Active Cases panel treatment. */
+function RowList({ cases, activeRunsByCase }: { cases: Case[]; activeRunsByCase: Map<string, ActiveRun> }) {
   return (
-    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-pill border border-border bg-surface-2 font-mono text-xs font-medium text-text-dim">
-      {initials(name)}
-    </div>
-  );
-}
-
-function CaseCard({ case_: c, activeRun }: { case_: Case; activeRun?: ActiveRun }) {
-  const needsReview = groupOf(c.status) === "review";
-  const topology = activeRun ? (activeRun.graph === "petition" ? PETITION_TOPOLOGY : RFE_TOPOLOGY) : null;
-  // normalizeProgress: activeRun.progress can legitimately be {} for runs that predate T5.3
-  // or crashed before ever streaming a node event — see lib/runProgress.ts.
-  const progressPct =
-    activeRun && topology && topology.length > 0
-      ? Math.round((normalizeProgress(activeRun.progress).completed_nodes.length / topology.length) * 100)
-      : null;
-
-  return (
-    <Link
-      to={`/cases/${c.id}`}
-      className={[
-        "block rounded-card border bg-surface p-4 transition-colors duration-hover hover:border-border-strong hover:bg-surface-2",
-        needsReview ? "border-l-[3px] border-l-partial border-y-border border-r-border" : "border-border",
-      ].join(" ")}
-    >
-      <div className="flex items-center gap-3">
-        <Monogram name={c.beneficiary_name} />
-        <div className="min-w-0">
-          <p className="truncate font-display text-base text-text">{c.beneficiary_name}</p>
-          <p className="mt-0.5 font-mono text-xs text-text-faint">{c.visa_category}</p>
-        </div>
-      </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <HealthDial health={c.health} />
-        <StatusPill status={c.status} />
-        {needsReview && (
-          <span className="font-mono text-[10px] uppercase tracking-wide text-partial">Your review</span>
-        )}
-      </div>
-      {c.filing_deadline && (
-        <div className="mt-2">
-          <DeadlineBadge deadline={c.filing_deadline} />
-        </div>
-      )}
-      {progressPct != null && (
-        <div className="mt-3 h-1 overflow-hidden rounded-pill bg-surface-2">
-          <div
-            className="h-1 rounded-pill bg-run transition-all duration-panel ease-casewright"
-            style={{ width: `${progressPct}%` }}
-          />
-        </div>
-      )}
-    </Link>
-  );
-}
-
-function CardGrid({ cases, activeRunsByCase }: { cases: Case[]; activeRunsByCase: Map<string, ActiveRun> }) {
-  return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="divide-y divide-border rounded-card border border-border bg-surface">
       {cases.map((c) => (
-        <CaseCard key={c.id} case_={c} activeRun={activeRunsByCase.get(c.id)} />
+        <CaseRow key={c.id} case_={c} activeRun={activeRunsByCase.get(c.id)} />
       ))}
     </div>
   );
@@ -176,7 +98,7 @@ function NewCaseDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o
   );
 }
 
-export default function Dashboard() {
+export default function CasesList() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -296,7 +218,7 @@ export default function Dashboard() {
                 <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-partial">
                   Needs your review · {review.length}
                 </h2>
-                <CardGrid cases={review} activeRunsByCase={activeRunsByCase} />
+                <RowList cases={review} activeRunsByCase={activeRunsByCase} />
               </section>
             )}
             {active.length > 0 && (
@@ -304,7 +226,7 @@ export default function Dashboard() {
                 <h2 className="mb-3 font-mono text-xs uppercase tracking-wide text-text-dim">
                   Active · {active.length}
                 </h2>
-                <CardGrid cases={active} activeRunsByCase={activeRunsByCase} />
+                <RowList cases={active} activeRunsByCase={activeRunsByCase} />
               </section>
             )}
             {closed.length > 0 && (
@@ -315,7 +237,7 @@ export default function Dashboard() {
                 >
                   {showClosed ? "▾" : "▸"} Filed / Closed · {closed.length}
                 </button>
-                {showClosed && <CardGrid cases={closed} activeRunsByCase={activeRunsByCase} />}
+                {showClosed && <RowList cases={closed} activeRunsByCase={activeRunsByCase} />}
               </section>
             )}
           </div>

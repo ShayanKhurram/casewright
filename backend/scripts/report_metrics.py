@@ -1,7 +1,7 @@
 """Reports the two operational metrics from plan §11 that are actually derivable from the
 current schema without new instrumentation: verification blocker rate and gate wait time.
 
-NOT included here (a real gap, not an oversight — see PROJECT_LOG.md): run duration by node
+NOT included here (a real gap, not an oversight — see docs/internal/PROJECT_LOG.md): run duration by node
 and tokens per case. Neither is derivable today. Node-level timing would need a per-node
 start/end timestamp (agent_runs only has one updated_at, overwritten on every transition,
 so individual node durations within a run aren't reconstructable after the fact). Token usage

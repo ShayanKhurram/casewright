@@ -13,13 +13,16 @@ from app.config import get_settings
 
 settings = get_settings()
 
+# addressing_style="path": required by most non-AWS S3-compatible providers (Supabase Storage
+# included) — they don't support virtual-hosted-style bucket addressing
+# (bucket.endpoint.com), only path-style (endpoint.com/bucket). Harmless against MinIO too.
 _client = boto3.client(
     "s3",
     endpoint_url=settings.s3_endpoint_url,
     aws_access_key_id=settings.s3_access_key,
     aws_secret_access_key=settings.s3_secret_key,
     region_name=settings.s3_region,
-    config=BotoConfig(signature_version="s3v4"),
+    config=BotoConfig(signature_version="s3v4", s3={"addressing_style": "path"}),
 )
 
 # SigV4 signs the host, so a presigned URL must be generated against the host it'll actually
@@ -31,7 +34,7 @@ _presign_client = boto3.client(
     aws_access_key_id=settings.s3_access_key,
     aws_secret_access_key=settings.s3_secret_key,
     region_name=settings.s3_region,
-    config=BotoConfig(signature_version="s3v4"),
+    config=BotoConfig(signature_version="s3v4", s3={"addressing_style": "path"}),
 )
 
 

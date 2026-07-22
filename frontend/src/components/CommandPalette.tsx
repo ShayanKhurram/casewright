@@ -21,6 +21,17 @@ import { Case } from "../types";
  * plain CSS is the cleanest path that stays within this one file (no edits to index.css). */
 const TAB_NAMES = ["Overview", "Evidence", "Criteria", "Strategy", "Drafts", "RFE"] as const;
 
+/** Mirrors Sidebar.tsx's NAV_ITEMS + the pinned Settings row (Phase 8, T8.1) — the two are
+ * independently hand-maintained, not derived from a shared route registry; keep in sync. */
+const NAV_DESTINATIONS = [
+  { label: "Overview", to: "/" },
+  { label: "Cases", to: "/cases" },
+  { label: "Clients", to: "/clients" },
+  { label: "Documents", to: "/documents" },
+  { label: "Calendar", to: "/calendar" },
+  { label: "Settings", to: "/settings" },
+];
+
 export default function CommandPalette() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
@@ -81,16 +92,19 @@ export default function CommandPalette() {
           </Command.Group>
 
           <Command.Group heading="Navigation" className="text-text">
-            <Command.Item
-              value="Dashboard"
-              onSelect={() => {
-                navigate("/");
-                setOpen(false);
-              }}
-              className="flex cursor-pointer items-center rounded-control px-3 py-2 text-sm text-text aria-selected:bg-surface-2"
-            >
-              Dashboard
-            </Command.Item>
+            {NAV_DESTINATIONS.map(({ label, to }) => (
+              <Command.Item
+                key={to}
+                value={label}
+                onSelect={() => {
+                  navigate(to);
+                  setOpen(false);
+                }}
+                className="flex cursor-pointer items-center rounded-control px-3 py-2 text-sm text-text aria-selected:bg-surface-2"
+              >
+                {label}
+              </Command.Item>
+            ))}
           </Command.Group>
 
           {caseMatch && (

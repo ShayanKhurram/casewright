@@ -821,3 +821,329 @@ file sets overlap across tasks): T7.1 → T7.4 → T7.2 → T7.3 → T7.5.
   only navigation (cases, tabs, dashboard). Revisit if the user wants the fuller action set.
 - Grounded Q&A has no persisted chat history — reloading the Case Workspace loses prior turns.
   Acceptable for the MVP surface; would need a new table if attorneys want a durable Q&A log.
+
+## Phase 8 — CRM Dashboard Shell (source: `casewright-dashboard-shell-plan.md`)
+
+User supplied a plan for a "LexPath-style" CRM shell: branded sidebar with a fuller top-level IA
+(Dashboard/Cases/Clients/Documents/Calendar), a topbar search + notification bell, and a new
+Overview landing screen (stat cards + Active Cases panel + Deadlines rail) replacing the current
+`/` route, which today is just the case list. Ground-truthed against the real codebase before
+scoping (`Sidebar.tsx` today has exactly one nav item by design — a comment there says Knowledge/
+Settings were deliberately left out because they had no page yet; `Dashboard.tsx` is the case
+list with zero stat tiles; no `/clients`/`/documents`/`/calendar` route or `clients` table exists
+anywhere). User chose the full 5-phase scope, split 2 tasks direct / 3 via pi. Split: **T8.1
+(shell/routing) and T8.4 (new destinations) built directly** — both are foundational/backend-
+touching in the same way T5.1/T5.3/T6.1 were (a mistake in routing or in a new firm-wide endpoint
+propagates everywhere downstream); **T8.2, T8.3, T8.5 delegated to pi** — all three are additive
+presentational surfaces over data that already exists (or that T8.1/T8.4 just added), matching
+the shape of Phase 7's pi tasks.
+
+Three deliberate deviations from the source doc's literal wording, decided while scoping rather
+than left implicit — each documented at its task below too:
+1. **No new `clients` table.** The source doc's §2 says "Needs one `clients` table + FK from
+   `cases`." But nothing in this plan (or the app) actually creates/edits a client — the only
+   consumer is a read-only roll-up screen — and `cases` has no petitioner concept today, only a
+   flat `beneficiary_name` string. Building a real client entity with no creation/edit workflow
+   behind it is exactly the "don't design for hypothetical future requirements" case. T8.4
+   instead computes Clients as a `GROUP BY beneficiary_name` roll-up over `cases`. Matches the
+   source doc's own §6 instruction ("Ship these as read-only roll-ups first") more literally than
+   its §2 aside does.
+2. **⌘K stays bound to `CommandPalette` only.** The source doc's §3 says "Wire ⌘K to focus it"
+   (the topbar search). This app already binds ⌘K to the richer `CommandPalette` (case search +
+   navigation + tab jump, built in T7.1) — rebinding it to a plain search field would be a
+   regression, and two competing ⌘K handlers is a bug waiting to happen. The topbar search field
+   is still built, just not ⌘K-triggered.
+3. **"RFE deadlines <14d" (stat card) is scoped to `Case.filing_deadline` in T8.2**, not
+   `RFENotice.response_deadline` — the latter has no firm-wide endpoint until T8.4 builds one, and
+   T8.2 (pi) runs before T8.4 (Claude) in build order. T8.4 then upgrades the Overview's Deadlines
+   rail to merge in RFE response deadlines too, once `GET /deadlines` exists, closing the gap
+   rather than leaving it stale.
+
+- [x] T8.1 (Claude): Shell chrome + IA routing. Extract the case-status grouping logic
+      (`NEEDS_REVIEW`/`CLOSED` sets, `groupOf`) out of `frontend/src/pages/Dashboard.tsx` into a
+      new `frontend/src/lib/caseGroups.ts` (both the sidebar badge and the renamed case-list page
+      need it now). `git mv frontend/src/pages/Dashboard.tsx frontend/src/pages/CasesList.tsx`,
+      content otherwise unchanged except importing `groupOf`/`NEEDS_REVIEW`/`CLOSED` from the new
+      lib file instead of defining them locally, and its own `<h1>` copy stays "Cases" (it's the
+      Cases destination now, not the landing page). New minimal
+      `frontend/src/pages/Overview.tsx` (`<div className="mx-auto max-w-6xl p-8"><h1
+      className="font-display text-2xl text-text">Overview</h1><p className="mt-2
+      text-text-dim">Coming soon.</p></div>` — T8.2 replaces the body). New minimal placeholder
+      pages using the existing `EmptyState` component, each `<div className="mx-auto max-w-6xl
+      p-8">` wrapping `<EmptyState icon={...} title="..." description="Coming soon." />`:
+      `frontend/src/pages/Clients.tsx` (icon `Users`), `frontend/src/pages/Documents.tsx` (icon
+      `FileText`), `frontend/src/pages/Calendar.tsx` (icon `CalendarDays`) — T8.4 replaces all
+      three bodies. New `frontend/src/pages/Settings.tsx`, same placeholder shape (icon
+      `Settings`), staying a placeholder indefinitely (out of this plan's scope, but the source
+      doc's shell mockup wants the nav entry present). `frontend/src/App.tsx`: add `<Route
+      path="/cases" .../>` (→ `CasesList`), `/clients`, `/documents`, `/calendar`, `/settings`
+      (→ their new pages, each wrapped in the same `RequireAuth`/`Shell` pattern as the existing
+      two routes), and change `/`'s element from `Dashboard` to `Overview`.
+      `frontend/src/components/shell/Sidebar.tsx`: replace `NAV_ITEMS` with `Dashboard` (`/`,
+      `LayoutDashboard`), `Cases` (`/cases`, `Folder`, badge = count of cases where
+      `groupOf(status) === "review"` from the `["cases"]` query — fetch it here the same way
+      `Dashboard.tsx` did, shared cache so no extra network cost), `Clients` (`/clients`,
+      `Users`), `Documents` (`/documents`, `FileText`), `Calendar` (`/calendar`, `CalendarDays`)
+      — badge is a small `bg-surface-2` (or `bg-partial/10 text-partial` when count > 0, matching
+      the plan's "count badges ... `--accent` for urgent counts" framing) pill, mono 11px,
+      right-aligned in the nav row, hidden when collapsed same as the label text. Add a pinned
+      "Settings" `NavLink` (`/settings`, `Settings` icon) directly above the existing bottom
+      account block, separated by the existing hairline divider (a second, separate block from
+      `NAV_ITEMS`, matching the mockup's "Settings" sitting just above the account row, not mixed
+      into the scrolling nav list). New `frontend/src/components/shell/NotificationBell.tsx` — a
+      bell icon button + Radix `Popover` (reuse the same Popover import pattern as
+      `RunIndicator.tsx`/`UserMenu.tsx`), body says "No new notifications." (a real, honest empty
+      state — do not fabricate placeholder notification data); T8.5 replaces the body with a real
+      feed, this task only builds the shell. **Mounted inside `Topbar.tsx`'s right cluster**
+      (before `UserMenu`, same row as `RunIndicator`) — it's a topbar affordance per the source
+      doc's own shell diagram, unlike the help button below. New `frontend/src/components/shell/
+      HelpButton.tsx` — fixed `bottom-4 right-4 z-40` circular "?" button + Radix Popover listing
+      keyboard shortcuts (at minimum: "⌘K / Ctrl+K — Command palette"). Mounted once in
+      `frontend/src/components/Shell.tsx` (same level as the existing `CommandPalette`/
+      `RouteProgressBar` mounts) — it's genuinely page-independent and fixed-positioned, unlike
+      the bell. `frontend/src/components/shell/Topbar.tsx`: add a search `Input` (reuse
+      `components/ui/Input.tsx`) between the breadcrumb and the `RunIndicator`/
+      `NotificationBell`/`UserMenu` cluster, ~320px, placeholder "Search cases…", `Search` icon
+      inset — for this task, wire only `onKeyDown` Enter → `navigate("/cases")` (no query
+      threading yet; T8.5 replaces this whole component with the real expanding
+      grouped-results dropdown — leave a comment saying so, so pi doesn't have to guess the
+      handoff boundary). Extend `Breadcrumb()` in the same file: root `/` → "Overview" (no link,
+      it's already there), `/cases` (exact) → "Cases", `/clients` → "Clients", `/documents` →
+      "Documents", `/calendar` → "Calendar", `/settings` → "Settings", and the existing
+      `/cases/:caseId` branch's first-segment link changes from `to="/"` to `to="/cases"` (it's
+      no longer the landing page). `frontend/src/components/CommandPalette.tsx`: expand the
+      "Navigation" `Command.Group` from the current single hardcoded `"Dashboard"` item to six
+      items (Overview `/`, Cases `/cases`, Clients `/clients`, Documents `/documents`, Calendar
+      `/calendar`, Settings `/settings`) — plain literal `Command.Item`s, no new abstraction.
+      · acceptance: `npm run build`/`npm test` clean; every Sidebar nav item (including the
+      pinned Settings row) routes to a real page with no 404/blank screen; the Cases badge shows
+      a live count matching `CasesList`'s own "Needs your review" section count for the same
+      data; `CasesList` at `/cases` preserves 100% of the existing Dashboard behavior (search,
+      status/category filters, review/active/closed grouping, New Case dialog) — a before/after
+      trace against this brief's description of the current file, not just "it still builds";
+      `CommandPalette`'s Navigation group lists all 6 destinations and each selection navigates
+      correctly; breadcrumb text is correct on all 6 top-level routes and unchanged on
+      `/cases/:caseId`; `NotificationBell`/`HelpButton` render, open/close, and fetch nothing
+      (no crash, no fake data). · reviewed 2026-07-22 (uncommitted — see PROJECT_LOG)
+
+- [x] T8.2 (pi): Overview screen. Build the real content of `frontend/src/pages/Overview.tsx`
+      (T8.1 leaves it a "Coming soon" placeholder). Fetch `["cases"]` (`apiFetch<Case[]>("/cases")`
+      — same query key as `CasesList`/`CommandPalette`, shared cache) and `["runs","active"]`
+      (same as `CasesList`). Header: `<h1 className="font-display text-2xl text-text">Overview</h1>`
+      + a live weekday-stamped date beneath in `text-text-dim` (e.g. `new
+      Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day:
+      "numeric" })` — compute once per render, no ticking clock needed). **Stat card row** (4
+      cards, `grid grid-cols-2 lg:grid-cols-4 gap-3`, each `rounded-card border border-border
+      bg-surface p-5 hover:border-border-strong transition-colors duration-hover`, mono
+      uppercase 11px label → big number (`font-display text-3xl` or `font-sans text-3xl
+      font-semibold`) → 13px caption in `text-text-dim`), all computed client-side from the
+      already-fetched `cases` array (no new backend calls):
+      - **Total cases** — `cases.length` (or exclude `closed`-group cases per `groupOf` if you
+        want "currently managed"; either is defensible, pick one and state it in the caption,
+        e.g. "All open matters").
+      - **Needs review** — count where `groupOf(status) === "review"` (import from T8.1's new
+        `lib/caseGroups.ts`); number tinted `text-partial` when > 0, else `text-text`.
+      - **Filing deadlines <14d** — count where `filing_deadline` is non-null and `(new
+        Date(filing_deadline).getTime() - Date.now()) / 86_400_000 <= 14` (include already-overdue
+        ones too — same "urgent" bucket `DeadlineBadge` already uses); tint `text-gap` when > 0.
+        (Named "Filing deadlines", not "RFE deadlines" — see the Phase 8 header note on why.)
+      - **Filed this quarter** — count where `status === "filed"` and `updated_at` falls in the
+        current calendar quarter (`Math.floor(date.getMonth()/3)` matches current quarter and
+        year matches); tint `text-met`.
+      Each card is a `<Link>` to `/cases` (plain nav to the Cases screen for now — a real
+      query-param prefilter is out of scope this task, don't invent one). **Two-column work
+      area** (`grid grid-cols-1 lg:grid-cols-[1.6fr_1fr] gap-4`):
+      - **Left — `ActiveCasesPanel`** (new `frontend/src/components/ActiveCasesPanel.tsx`):
+        header row "Active Cases" (`font-display text-base`) + "View all →" `<Link to="/cases">`
+        (`text-accent-text`, right-aligned). Body: new `frontend/src/components/CaseRow.tsx`
+        (`{ case_: Case; activeRun?: ActiveRun }` — same props shape as `CasesList`'s existing
+        `CaseCard`, this is a *row* layout, not a card) for the top 6 cases sorted
+        needs-review-first then by `updated_at` desc, each row: reuse the same `Monogram`
+        pattern (36px here per the source doc, vs `CasesList`'s 36px `h-9 w-9` — match that),
+        name + `visa_category` beneath (mono 12px `text-text-dim`), right cluster: `StatusPill`
+        + `DeadlineBadge` (compact — if `DeadlineBadge`'s current text is too wide for a row,
+        it's fine as-is, don't rebuild it) + a trailing chevron icon (`ChevronRight`,
+        `text-text-faint`). Rows separated by `divide-y divide-border`, `hover:bg-surface-2`,
+        each wrapped in a `<Link to="/cases/{id}">`. Panel-level skeleton: 5 shimmer row
+        placeholders using the existing `SkeletonLine`/`SkeletonGate` primitives from
+        `components/ui/Skeleton.tsx` (same pattern as `DashboardSkeleton.tsx` — read it first).
+      - **Right — `DeadlinesRail`** (new `frontend/src/components/DeadlinesRail.tsx`): header
+        "Deadlines". Body: derive from the same `cases` array — filter to non-null
+        `filing_deadline`, sort ascending, take top 5. Each row: `beneficiary_name` (14px) + a
+        mono day-countdown on the right (reuse the day-math from `DeadlineBadge.tsx` rather than
+        re-deriving it differently) + a thin `h-1 rounded-pill bg-surface-2` progress bar beneath
+        whose fill width communicates urgency (e.g. `Math.max(0, Math.min(100, 100 - days))` —
+        pick a simple, documented formula, doesn't need to be exact) colored `bg-met` → `bg-partial`
+        → `bg-gap` via the same day thresholds `DeadlineBadge` uses (>14 / 0-14 / overdue). Each
+        row a `<Link to="/cases/{id}">`. Skeleton: 5 shimmer line placeholders, `SkeletonGate`.
+      Both panels handle the zero-data case with the existing `EmptyState` component (not a
+      blank panel) — e.g. "No active cases" / "No upcoming deadlines".
+      · acceptance: `npm run build`/`npm test` clean; visiting `/` shows the header+date, 4 stat
+      cards with numbers that are independently verifiable against the raw `["cases"]` response
+      (verify by computing the same counts by hand against a live `/cases` response during
+      review), the Active Cases panel and Deadlines rail both populated and correctly sorted, a
+      loading skeleton visible on first load (throttle network in review to confirm, or trust
+      `SkeletonGate`'s existing anti-flash gate), empty states render (not blank) when no cases
+      exist; every card/row/stat is a working link (per the source doc's "everything is a
+      shortcut" principle — don't ship a dead card). · reviewed 2026-07-22 (uncommitted — see
+      PROJECT_LOG)
+
+- [x] T8.3 (pi): Cases list reskin. `frontend/src/pages/CasesList.tsx` (renamed by T8.1) keeps
+      every existing behavior (search input, status segmented-pill bar, category segmented
+      buttons, Needs-review/Active/Filed-closed grouping with the collapsible closed section, New
+      Case dialog, `DashboardSkeleton`, `EmptyState` for zero-cases/zero-matches) — the only
+      change is the row presentation. Replace the `CardGrid`/`CaseCard` grid layout with a list
+      layout using T8.2's `frontend/src/components/CaseRow.tsx` (same component the Overview's
+      Active Cases panel uses — do not fork a second copy). Delete `CasesList.tsx`'s now-dead
+      local `CaseCard`/`CardGrid`/`Monogram`/`initials` (keep `initials`/`Monogram` only if
+      `CaseRow` doesn't already export/reuse them — check T8.2's `CaseRow.tsx` first; if it needs
+      a shared avatar helper, add it to `frontend/src/lib/avatar.ts` and have both `CaseRow` and
+      any other caller import from there rather than duplicating). Sections render as
+      `divide-y divide-border rounded-card border border-border bg-surface` panels of `CaseRow`s
+      instead of a `grid` of `CaseCard`s — same three sections (review/active/closed), same
+      conditional rendering, same `showClosed` toggle behavior. Progress-bar-for-active-run
+      behavior (`normalizeProgress`/`PETITION_TOPOLOGY`/`RFE_TOPOLOGY`) must still show somewhere
+      on the row for cases with an active run — if `CaseRow` doesn't already support this (it's
+      Overview-panel-scoped in T8.2, which may not need it since Overview's Active Cases panel
+      already implies "active"), add an optional `activeRun` prop path to `CaseRow` if not
+      already there, don't build a second row component. `NewCaseDialog` and the filter bar
+      (search/status/category) are untouched beyond whatever prop plumbing changes if any.
+      · acceptance: `npm run build`/`npm test` clean; `/cases` renders the same 3 sections with
+      the same case membership as before this task under a real `["cases"]` fixture, just as
+      rows instead of cards; every existing filter (search/status/category) still narrows the
+      same set of cases; New Case dialog still works end to end (create → list refetches);
+      active-run progress is still visible per-case; no leftover dead code (`CaseCard`/
+      `CardGrid` fully removed, not left unused). · reviewed 2026-07-22 (uncommitted — see
+      PROJECT_LOG)
+
+- [x] T8.4 (Claude): New destinations — Clients / Documents / Calendar (backend + frontend). No
+      DB migration this task (see the Phase 8 header's deviation #1 — Clients is a computed
+      roll-up, not a new table). Backend, new `backend/app/schemas/rollup.py`: `ClientOut{
+      beneficiary_name: str, case_count: int, case_ids: list[UUID], most_urgent_status: str,
+      visa_categories: list[str]}`; `DocumentWithCaseOut(DocumentOut)` adding `beneficiary_name:
+      str`; `DeadlineOut{case_id: UUID, beneficiary_name: str, kind: Literal["filing",
+      "rfe_response"], date: date, source_id: UUID | None}` (`source_id` = the `RFENotice.id`
+      when `kind=="rfe_response"`, else `None`). New `backend/app/api/rollups.py` (one file, all
+      three endpoints — they're all thin firm-scoped read queries, don't split into three router
+      files): `GET /clients` — `select(Case).where(Case.firm_id == current_user.firm_id)`, group
+      in Python by `beneficiary_name` (not SQL `GROUP BY`, since `most_urgent_status` needs the
+      same three-tier priority `groupOf` uses on the frontend — port it as a small
+      `_status_priority(status: str) -> int` local to this file, `review=2 > active=1 >
+      closed=0`, pick the case with the highest priority per beneficiary as the "most urgent" and
+      note in a comment that this mirrors `frontend/src/lib/caseGroups.ts`'s `groupOf` and the
+      two must be kept in sync by hand — there's no shared-language way around that here).
+      Response sorted by `case_count` desc. `GET /documents` — extend `backend/app/api/
+      documents.py` (not a new file, matches its existing `/cases/{case_id}/documents` sibling)
+      with `GET /documents` (no `/cases` prefix conflict since the router's prefix is
+      `/cases` — mount this one on a second `APIRouter(prefix="/documents", tags=["documents"])`
+      in the same file, registered separately in `main.py`), optional query params `case_id:
+      UUID | None`, `kind: str | None` (validate against `DOCUMENT_KINDS` same as upload does),
+      joins `Document` to `Case` on `Document.case_id == Case.id`, filters `Case.firm_id ==
+      current_user.firm_id` (documents have no direct `firm_id` scoping check today beyond the
+      per-case route — confirm firm-scoping is enforced here, this is the first firm-wide
+      document listing endpoint), returns `list[DocumentWithCaseOut]` ordered by `created_at`
+      desc. `GET /deadlines` — new `backend/app/api/deadlines.py`: union of (a) cases with
+      non-null `filing_deadline` → `kind="filing"`, and (b) `RFENotice` joined to `Case` (for
+      `firm_id` scoping + `beneficiary_name`) where `response_deadline` is non-null →
+      `kind="rfe_response"`; merge in Python, sort by `date` ascending, return
+      `list[DeadlineOut]`. Register both new routers in `backend/app/main.py` next to the
+      existing `include_router` calls. Tests: `backend/tests/test_rollups.py` (clients grouping
+      counts + most-urgent-status priority + firm isolation, following the firm/user/login
+      fixture pattern in `backend/tests/test_active_runs.py`), extend
+      `backend/tests/test_documents.py` (or new file if none exists — check first) for the
+      firm-wide endpoint + kind filter + cross-firm isolation, `backend/tests/
+      test_deadlines.py` (merge-and-sort correctness + firm isolation). Frontend: add
+      `Client`/`DocumentWithCase`/`Deadline` types to `frontend/src/types.ts`. Replace T8.1's
+      placeholders: `frontend/src/pages/Clients.tsx` — table (name, case count, most-urgent
+      `StatusPill`, visa categories) sorted as the API returns; clicking a row expands it inline
+      (no new route — see the Phase 8 header's disclosed simplification: there's no real client
+      entity, just a grouping, so a full detail *route* isn't warranted) to show that
+      beneficiary's cases as `CaseRow`s (reuse T8.2/T8.3's component, don't fork). No "type
+      petitioner/beneficiary" column — the data model has no petitioner concept, don't fabricate
+      one. `frontend/src/pages/Documents.tsx` — table (exhibit label, beneficiary name linked to
+      `/cases/{id}`, kind, content type, classification confidence, created date), filters: a
+      case `Select` (options from the `["cases"]` query) and a kind segmented-button row (reuse
+      `DOCUMENT_KINDS`' frontend equivalent — check `frontend/src/types.ts`/`EvidenceTab.tsx`
+      for whether this list is already mirrored client-side; add it to `types.ts` if not).
+      `frontend/src/pages/Calendar.tsx` — hand-rolled month grid (no new dependency — no
+      date-fns in `package.json`, plain `Date` math is fine and matches the rest of the app's
+      convention), prev/next month nav, each day cell shows small colored dots/chips for that
+      day's deadlines from `GET /deadlines` (color via the same overdue/`<=14d`/else ramp), click
+      a chip navigates to `/cases/{case_id}`. Also: extend T8.2's `DeadlinesRail` (Overview) to
+      source from `GET /deadlines` instead of raw `cases.filing_deadline` — now includes RFE
+      response deadlines too, closing deviation #3 from the Phase 8 header. Also: extend T8.1's
+      `Sidebar.tsx` `Clients` nav item with a count badge (distinct beneficiary count from
+      `GET /clients`'s response length) — the one Sidebar badge T8.1 couldn't build yet because
+      the endpoint didn't exist.
+      · acceptance: `pytest`/`npm run build`/`npm test` clean; `GET /clients` returns correct
+      per-beneficiary counts and the highest-priority status among that beneficiary's cases,
+      firm-scoped (new test asserts firm B never sees firm A's clients); `GET /documents` and
+      `GET /deadlines` both firm-scoped with a passing cross-firm test each; Clients/Documents/
+      Calendar pages render real data (not "Coming soon" anymore) and every row/chip is a working
+      link; Overview's Deadlines rail includes at least one RFE-sourced entry when a seeded
+      RFENotice has a `response_deadline` (verify live); Sidebar's Clients badge shows a live
+      count. · reviewed 2026-07-22 (uncommitted — see PROJECT_LOG)
+
+- [x] T8.5 (pi): Search dropdown, notification feed, recent activity, polish. Backend: new
+      `GET /audit-log` in a new `backend/app/api/audit.py` (`response_model=list[AuditLogOut]`,
+      new schema in `backend/app/schemas/audit.py` mirroring `AuditLog`'s fields — `id, at,
+      actor, action, case_id, detail`), firm-scoped, `order_by(AuditLog.at.desc())`,
+      `limit` query param defaulting to 20, capped at 100 (reject/clamp higher, don't let an
+      unbounded query param DoS the endpoint). Register in `main.py`. Test:
+      `backend/tests/test_audit_log_endpoint.py` — firm isolation + limit clamping, following the
+      existing fixture pattern. Frontend: **replace** `frontend/src/components/shell/
+      Topbar.tsx`'s T8.1 placeholder search entirely (T8.1's comment marks this as the intended
+      handoff point) with an expanding search: on focus, opens a dropdown (`absolute`, positioned
+      under the input, `rounded-card border border-border bg-surface shadow-elevated`) showing
+      grouped results as the user types — reuse the same `["cases"]` query (client-filter by
+      `beneficiary_name` substring, same as `CasesList`'s existing search) under a "Cases" group,
+      and the `["documents"]`-style firm-wide fetch (new `apiFetch<DocumentWithCase[]>
+      ("/documents")` call, its own query key, only fetched when the dropdown is open/query
+      non-empty — don't eagerly load all firm documents on every page just for the topbar) under
+      a "Documents" group, filtered by `exhibit_label`/`beneficiary_name` substring. No `⌘K`
+      binding — clicking/focusing the input is the only way to open it (see the Phase 8 header's
+      deviation #2 for why). Selecting a case/document result navigates and closes the dropdown;
+      clicking outside or Escape closes it. Real `frontend/src/components/shell/
+      NotificationBell.tsx` body (replacing T8.1's "No new notifications" placeholder — keep that
+      exact copy as the true empty state when the feed below is genuinely empty, don't replace
+      the empty-state string): assemble a feed client-side from already-fetched query caches, no
+      new endpoint beyond the audit-log one above — items: cases in a `groupOf(status) ===
+      "review"` state ("X is waiting on your review"), active runs from `["runs","active"]`
+      ("Y's {graph} run is in progress"), and the 5 most recent `GET /audit-log` entries
+      humanized via a new small `humanizeAuditAction(action: string, detail: Record<string,
+      unknown>)` helper in `frontend/src/lib/statusTone.ts` (or a new `lib/auditLog.ts` if that
+      file is getting crowded — check its current line count first) covering at least
+      `case.created`, `document.uploaded`, and any `*.approved`/`*.reviewed`-shaped actions found
+      by grepping `backend/app/services/audit.py` call sites for the actual `action=` strings
+      used today (don't guess the action vocabulary, read it from the real call sites). Badge dot
+      on the bell when the combined feed is non-empty. New `frontend/src/components/
+      RecentActivityStrip.tsx` mounted on `Overview.tsx` below the two-column work area ("below
+      the fold" per the source doc) — same `GET /audit-log` data, rendered as a simple list
+      ("Strategy approved for Dr. Chen · 2h ago" style, using the same humanizer), omit the
+      section entirely if the log is empty (not an empty-state block — just don't render it, per
+      the source doc marking this "optional, adds depth"). New "Needs your review" quick-action
+      list on `Overview.tsx` (near the stat card row or the strip — pick a placement that doesn't
+      crowd the existing two-column layout) listing cases in the review group by name + status,
+      each linking to its case — this mirrors the "Needs review" stat card's count with the
+      actual case names. `HelpButton.tsx` polish: confirm its shortcut list still matches reality
+      after this task (still just ⌘K, unless something else warrants documenting).
+      · acceptance: `pytest`/`npm run build`/`npm test` clean; typing in the topbar search shows
+      live-filtered Cases and Documents groups and a selection navigates correctly; `⌘K` still
+      opens only `CommandPalette`, never the topbar dropdown; the bell shows a badge dot exactly
+      when there's something to show and the popover lists real (not fabricated) items each
+      linking somewhere real; `GET /audit-log` is firm-scoped (test) and limit-clamped; Overview
+      gains a recent-activity strip (present only when there's real audit data, verify by seeding
+      at least one) and a needs-review quick-action list; no dead/unused imports left from the
+      T8.1 placeholder search implementation it replaced. · reviewed 2026-07-22 (uncommitted —
+      see PROJECT_LOG)
+
+## Known follow-ups (Phase 8, tracked in advance)
+
+- Clients has no create/edit flow — it's a read-only roll-up over `cases.beneficiary_name`, per
+  deviation #1 above. A real client entity (with petitioner/beneficiary distinction, intake
+  wiring) is future scope if the product direction calls for it.
+- Calendar is a hand-rolled month grid, no week view (source doc's §6 mentions "month/week") —
+  week view deferred; month view covers the same underlying `/deadlines` data.
+- Topbar search (T8.5) and Command Palette (T7.1) both search cases with independent
+  implementations rather than a shared search-index abstraction — acceptable at this data volume,
+  revisit if a real search backend ever becomes necessary.

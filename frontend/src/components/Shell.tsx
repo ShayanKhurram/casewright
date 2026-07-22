@@ -1,4 +1,5 @@
 import CommandPalette from "./CommandPalette";
+import HelpButton from "./shell/HelpButton";
 import RouteProgressBar from "./shell/RouteProgressBar";
 import Sidebar from "./shell/Sidebar";
 import Topbar from "./shell/Topbar";
@@ -17,6 +18,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
         <Topbar />
         <main className="flex-1 overflow-y-auto bg-bg">{children}</main>
       </div>
+      <HelpButton />
     </div>
   );
 }

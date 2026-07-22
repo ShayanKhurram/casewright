@@ -1,6 +1,6 @@
 """The only module that talks to the model provider directly (plan §12). Provider is Ollama
 Cloud via its OpenAI-compatible API — plan §3 named Anthropic, but no ANTHROPIC_API_KEY was
-available in this environment and working Ollama Cloud credentials were (see PROJECT_LOG.md
+available in this environment and working Ollama Cloud credentials were (see docs/internal/PROJECT_LOG.md
 for the swap rationale and the model choices, each confirmed by hand against the live API
 before being wired in). Model choice is env-routed (REASONING_MODEL / FAST_MODEL / VISION_MODEL)
 so pricing/capability policy lives in one place. Structured outputs are forced through
@@ -133,7 +133,7 @@ async def call_structured(
 async def extract_page_text_via_vision(png_bytes: bytes) -> str:
     """OCR fallback for scanned/low-text pages (plan §7 tiered OCR). Uses a dedicated
     vision-capable model — not every fast tool-calling model on Ollama Cloud also accepts
-    image input (confirmed by hand; see PROJECT_LOG.md)."""
+    image input (confirmed by hand; see docs/internal/PROJECT_LOG.md)."""
     client = _get_client()
     response = await client.chat.completions.create(
         model=settings.vision_model,

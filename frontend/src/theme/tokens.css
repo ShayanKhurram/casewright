@@ -1,4 +1,4 @@
-/* Dark token system — casewright-ui-redesign-plan.md §3. Every component consumes these
+/* Dark token system — docs/internal/casewright-ui-redesign-plan.md §3. Every component consumes these
    variables (via tailwind.config.js's mapping), never a hex value directly. If a screen needs
    a value that isn't here, the token system gets amended, not the screen. */
 

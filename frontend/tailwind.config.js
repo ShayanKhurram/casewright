@@ -4,7 +4,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // --- Dark token system (casewright-ui-redesign-plan.md §3) ---
+        // --- Dark token system (docs/internal/casewright-ui-redesign-plan.md §3) ---
         // "border"/"border-strong" map to the plan's --hairline/--hairline-strong CSS vars.
         // rgb(var(--x-rgb) / <alpha-value>) (not a bare `var(--x)` hex string) so that Tailwind
         // opacity modifiers (`bg-accent/40`, `ring-run/10`, ...) actually emit CSS — Tailwind

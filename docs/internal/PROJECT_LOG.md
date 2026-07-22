@@ -935,6 +935,238 @@ logged as follow-ups rather than blocking. All five features were checked in a r
 rebuilt Docker images, not just build/test — including one full end-to-end pass through the actual
 configured LLM for the grounded-Q&A feature.
 
+### 2026-07-22 — Phase 8 scoped: CRM Dashboard Shell (T8.1 built, T8.2–T8.5 planned)
+
+User supplied `casewright-dashboard-shell-plan.md` (a "LexPath-style" CRM shell: branded sidebar
+with a fuller IA, topbar search/bell, a new Overview landing screen). Ground-truthed the current
+frontend/backend first (an Explore agent) rather than scoping against the source doc's
+assumptions — confirmed `Sidebar.tsx` had exactly one nav item by design, `Dashboard.tsx` was the
+case list with zero stat tiles, and no `/clients`/`/documents`/`/calendar` route or `clients`
+table existed anywhere. Scoped as Phase 8 in `PLAN.md` (T8.1–T8.5), user chose the full 5-phase
+plan split 2 direct / 3 via pi, matching the shape of the source doc's own build-phase order.
+Three deliberate deviations from the source doc's literal wording, decided during scoping and
+documented in `PLAN.md`'s Phase 8 header: (1) Clients is a computed roll-up over
+`cases.beneficiary_name`, not a new `clients` table — nothing in scope creates/edits a client, so
+a real entity with no creation workflow would be speculative schema; (2) ⌘K stays bound to the
+existing `CommandPalette` (T7.1) rather than being rebound to the new topbar search, avoiding two
+competing handlers; (3) the "RFE deadlines <14d" stat card is scoped to `Case.filing_deadline`
+until T8.4 builds a firm-wide `/deadlines` endpoint, since T8.2 (pi) runs before T8.4 (Claude).
+
+Built T8.1 (shell chrome + IA routing) directly — foundational, same reasoning as T5.1/T5.3/T6.1:
+extracted `NEEDS_REVIEW`/`CLOSED`/`groupOf` out of `Dashboard.tsx` into a new
+`lib/caseGroups.ts` (now shared by the Sidebar badge too), renamed `Dashboard.tsx` →
+`CasesList.tsx` (content otherwise unchanged, now mounted at `/cases`), added a new minimal
+`Overview.tsx` at `/` plus placeholder `Clients.tsx`/`Documents.tsx`/`Calendar.tsx`/`Settings.tsx`
+(all "Coming soon" `EmptyState`s — T8.2/T8.4 fill these in), rewrote `Sidebar.tsx`'s nav to the
+full 5-item IA with a live "Cases" needs-review badge and a pinned Settings row, added
+`NotificationBell.tsx` (mounted in `Topbar.tsx`'s right cluster, honest "No new notifications."
+empty body — T8.5 wires a real feed) and `HelpButton.tsx` (fixed bottom-right, mounted at `Shell`
+level, lists the ⌘K shortcut), added a topbar search input (Enter-to-`/cases` for now, T8.5
+replaces it with the real grouped dropdown), and extended `CommandPalette.tsx`'s Navigation group
+from one hardcoded item to all 6 destinations.
+- **One real placement correction, caught before it shipped**: the brief (written by me, in
+  `PLAN.md`) originally said to mount `NotificationBell` at the `Shell.tsx` level next to
+  `HelpButton`/`CommandPalette`. While implementing, this didn't match the source doc's own
+  topbar diagram (bell belongs in the topbar's right cluster, next to `RunIndicator`/`UserMenu`)
+  and `Shell.tsx` has no "right cluster" of its own to render it into sensibly. Fixed by moving
+  the bell into `Topbar.tsx` and updating `PLAN.md`'s T8.1 spec text to match before building —
+  caught during implementation, not left as a drift between the plan and the code.
+- Verified live, not just by build: `npm run build`/`npm test` (16/16) clean, hex grep clean,
+  `git status` diff matched the brief's file list exactly. Rebuilt the frontend Docker image,
+  logged into a live firm through nginx (`docker-partner@firm.test` / "Docker Verify Firm", an
+  existing test firm with real case data from earlier phases — better coverage than an empty
+  fixture), and clicked through all 6 routes both via Sidebar and via `CommandPalette` (⌘K),
+  confirmed the Cases badge count (1) matched the real "Needs your review" section count,
+  confirmed `NotificationBell`/`HelpButton` popovers render their real (non-fabricated) empty
+  states, and confirmed `/cases` preserved 100% of the old Dashboard's search/status/category
+  filters and review/active/closed grouping with real data (`Dr. Maria Chen` in review, `Dan koe`
+  in active). Backend test suite (42/42) also re-run as a sanity check, though this task touched
+  no backend code.
+- One throwaway firm created for this round's initial login attempt
+  (`t81shell@firm.test` / "T81 Shell Verify", empty, never actually used since Chrome's autofill
+  intercepted the login form and the already-authenticated `docker-partner@firm.test` session was
+  used instead) — left in the dev database, same policy as prior rounds' leftover test firms.
+
+T8.2–T8.5 are specced in `PLAN.md` with full acceptance criteria; not yet built. T8.2 (Overview
+screen) is next, via `/pi-build`.
+
+### 2026-07-22 (later) — T8.2 Overview screen (pi-built, Claude-reviewed)
+
+**Brief → pi**: pointed pi at `PLAN.md`'s T8.2 entry directly (not re-typed into the brief) plus a
+reading list of existing patterns to reuse (`CasesList.tsx`'s Monogram/`initials`,
+`DeadlineBadge.tsx`'s day-math, `Skeleton.tsx`/`DashboardSkeleton.tsx`, `EmptyState.tsx`,
+`caseGroups.ts`, `types.ts`). One clean `/pi-build` round, no re-guide needed — the session tool
+timed out at 120s and was moved to background automatically (per this harness's own background-
+task mechanism, not a `/pi-build` retry), returned `RESULT: DONE` on its own.
+
+**Review (Claude, against the actual diff, not the self-report)**: `git status` showed exactly the
+expected file set — new `Overview.tsx` (rewritten from T8.1's placeholder), new `CaseRow.tsx`,
+`ActiveCasesPanel.tsx`, `DeadlinesRail.tsx`, and a small extraction out of `DeadlineBadge.tsx`
+(`deadlineDays`/`deadlineTone` exported, default export unchanged so existing callers are
+unaffected) — nothing outside T8.2's scope touched (no `PLAN.md`/`PROJECT_LOG.md`/backend edits).
+Read all 4 changed/new files in full: stat-card counts trace correctly against `groupOf` and the
+extracted `deadlineDays` (independently re-derivable by hand from a raw `/cases` response, per the
+acceptance criterion); `ActiveCasesPanel` correctly excludes closed cases and sorts
+needs-review-first then `updated_at` desc; `DeadlinesRail` correctly reuses `deadlineDays`/
+`deadlineTone` rather than re-deriving a second formula (the exact kind of drift the brief called
+out to avoid); `CaseRow`/`initials`/`Monogram` are exported specifically for T8.3 to reuse, not
+duplicated. Independently re-ran `npm run build` (clean, 1971 modules) and `npm test` (16/16) from
+a fresh shell rather than trusting pi's self-check, plus a hex grep (clean).
+Verified live, not just built: rebuilt the frontend Docker image, reloaded through nginx against
+the same "Docker Verify Firm" test data from T8.1's verification (2 open cases, one needing
+review) — the stat row read Total 2 / Needs review 1 (tinted amber) / Filing deadlines 0 / Filed
+this quarter 0, exactly matching a hand-check against the two seeded cases; Active Cases panel
+showed Dr. Maria Chen (strategy_review) above Dan koe (ready_to_file), correctly needs-review-
+first; Deadlines rail correctly rendered its real empty state (neither seeded case has a
+`filing_deadline` set) rather than fabricating placeholder rows; clicking a `CaseRow` navigated to
+the real case detail URL, confirmed via a URL check (a screenshot-tool timeout mid-navigation
+prevented capturing that particular click visually, but the URL change is direct proof the link
+navigates correctly). **VERDICT: PASS**, no defects found — no re-guide round needed.
+
+### 2026-07-22 (later) — T8.3 Cases list reskin (pi-built, Claude-reviewed)
+
+**Brief → pi**: pointed pi at `PLAN.md`'s T8.3 entry, told it to replace `CasesList.tsx`'s local
+`CaseCard`/`CardGrid`/`Monogram`/`initials` with T8.2's `CaseRow` in a list layout, keep every
+other behavior byte-for-byte, and delete the dead code rather than leave it unused. Ran
+synchronously this round (finished inside the 120s foreground window, no backgrounding needed).
+pi's own report noted it "fixed one self-introduced syntax error (double `}}`) before the final
+clean build" — a normal part of its own iterate-and-self-check loop, not something it reported as
+blocking.
+
+**Review (Claude, against the actual diff)**: `git status` showed exactly one file touched
+(`CasesList.tsx`, still tracked as the T8.1 rename) — no `PLAN.md`/`PROJECT_LOG.md`/backend/other-
+frontend-file edits, and critically `CaseRow.tsx`/`ActiveCasesPanel.tsx` (marked read-only
+reference material in the brief) were untouched. Read the full file: search/status-pill-bar/
+category-buttons/grouping/`showClosed`-toggle/`NewCaseDialog`/`DashboardSkeleton`/both
+`EmptyState` paths are all byte-identical to before except the row renderer, which is now a small
+local `RowList` (`divide-y divide-border rounded-card border border-border bg-surface` wrapping
+`CaseRow`s) replacing the old `CardGrid`/`CaseCard`/`Monogram`/`initials` — all four fully removed
+along with the imports only they used (confirmed by grep, matching pi's own self-check). No
+behavior regression: `filtered`/`review`/`active`/`closed` derivation, `activeRunsByCase`
+construction, and every filter's logic are unchanged. Independently re-ran `npm run build`
+(clean), `npm test` (16/16), and a hex grep (clean) — did not just trust the self-check. Rebuilt
+the frontend Docker image and reloaded `/cases` through nginx: same "Needs your review · 1" /
+"Active · 1" sections with the same two cases, now rendered as bordered-panel rows instead of
+cards, active-run progress bar still visible under Dr. Maria Chen's row. **VERDICT: PASS**, no
+defects found — no re-guide round needed, second clean pi round in a row this phase.
+
+### 2026-07-22 (later still) — T8.4 New destinations: Clients/Documents/Calendar (Claude, in-house)
+
+Built directly, not delegated — same reasoning as T8.1: this touches new firm-wide API surface
+(the first document/deadline listing that isn't scoped under a single case), which is the kind
+of foundational surface a mistake in propagates everywhere downstream.
+
+**Backend**: new `app/schemas/rollup.py` (`ClientOut`/`DocumentWithCaseOut`/`DeadlineOut`), new
+`app/api/rollups.py` (`GET /clients` — groups `cases` by `beneficiary_name` in Python, not SQL
+`GROUP BY`, because `most_urgent_status` needs a `_status_priority` port of
+`frontend/src/lib/caseGroups.ts`'s `groupOf` that SQL can't express directly), new
+`app/api/deadlines.py` (`GET /deadlines` — unions non-null `cases.filing_deadline` and
+`rfe_notices.response_deadline`, merges and sorts in Python), and a new `firmwide_router` in the
+existing `app/api/documents.py` (`GET /documents`, firm-wide, case/kind filterable — the first
+document endpoint not nested under `/cases/{case_id}`). No new table, no migration — see
+`PLAN.md`'s Phase 8 header, deviation #1 (Clients is a computed roll-up, not a new entity).
+Registered all three in `main.py`. Five new backend tests (2 `test_rollups.py`, 2
+`test_deadlines.py`, 1 added to the existing `test_documents.py`), all firm-scoped with a
+cross-tenant-isolation assertion, following the `test_active_runs.py` fixture convention. One
+self-caught lint fix (an unused `datetime` import in `rollup.py`) before the final clean run: 47/47
+backend tests, ruff clean, mypy clean (`.venv/Scripts/{ruff,mypy}.exe` on the host — the runtime
+Docker image doesn't ship dev tools, matching how CI actually runs them).
+
+**Frontend**: added `Client`/`DocumentWithCase`/`Deadline` to `types.ts`; replaced T8.1's three
+placeholders — `Clients.tsx` (roll-up table, click-to-expand inline showing that beneficiary's
+cases as `CaseRow`s reused from T8.2, no separate detail route since there's no real client
+entity to route to — disclosed in `PLAN.md`), `Documents.tsx` (firm-wide table with case/kind
+`Select` filters), `Calendar.tsx` (hand-rolled month grid, no date-fns dependency — matches the
+app's existing no-unnecessary-deps convention, colored deadline chips, click-to-navigate).
+Upgraded `DeadlinesRail.tsx` (Overview) from T8.2's `cases.filing_deadline`-only source to the
+new `GET /deadlines` endpoint, closing the Phase 8 header's deviation #3 — the rail now shows the
+same merged filing+RFE data the Calendar renders, condensed, matching the source doc's original
+intent. Added the deferred Clients count badge to `Sidebar.tsx` (a `NavBadge` `tone` prop split
+— `"urgent"` amber for Cases' needs-review count, `"neutral"` gray for Clients' plain total, since
+a client count isn't inherently urgent the way a review queue is).
+
+**Verified live**, not just built: `npm run build`/`npm test` (16/16)/hex grep all clean.
+Rebuilt both Docker images. Spot-checked all three new endpoints directly against real
+"Docker Verify Firm" data (`/clients` correctly grouped 2 beneficiaries with correct
+`most_urgent_status`; `/documents` returned all 3 real documents with `beneficiary_name`
+attached; `/deadlines` correctly empty before seeding). Seeded a real filing deadline (Dr. Maria
+Chen, +8d) and a real RFE notice with a response deadline (Dan koe, +3d) against the live firm to
+verify the merge end-to-end, then cleaned both up afterward (same seed-screenshot-cleanup
+discipline as T6.2's throwaway `agent_runs` row): Overview's stat card ("Filing deadlines <14d")
+went from 0→1 correctly; the Deadlines rail showed both entries merged and sorted soonest-first
+("Dan koe / RFE RESPONSE" before "Dr. Maria Chen / FILING"); Clients page showed both
+beneficiaries with click-to-expand working; Documents page's kind filter correctly narrowed 3
+rows to 1; Calendar correctly placed both chips on their real calendar days (Jul 25 and Jul 30)
+and a chip click navigated to the right case. Also incidentally confirmed, on a fresh browser
+tab, that the topbar's `NotificationBell`/`HelpButton`/`UserMenu` cluster (all built in T8.1)
+renders fully — an earlier CDP/tab freeze during this same session had prevented seeing the
+far-right topbar icons directly; a new tab resolved it, and this wasn't a code defect.
+
+### 2026-07-22 (final) — T8.5 Search dropdown, notifications, recent activity, polish (pi-built, Claude-reviewed)
+
+**Brief → pi**: pointed pi at `PLAN.md`'s T8.5 entry plus the real audit-log action vocabulary
+(pre-grepped by Claude so pi wouldn't have to guess it), a reading list of files to consult
+before writing (`audit.py`'s record pattern, T8.4's `rollups.py`/`deadlines.py` as router
+conventions to copy, `test_rollups.py`'s fixture pattern, `Topbar.tsx`/`NotificationBell.tsx`'s
+current placeholders, `Overview.tsx`'s mount points, `statusTone.ts`'s existing humanizer
+pattern), and an explicit file allowlist. Ran in the background (120s foreground timeout hit
+mid-run, same as T8.2). pi could self-check backend correctness only via `py_compile` (no live
+Postgres available to it) — flagged honestly in its own report rather than claiming a pytest pass
+it never ran.
+
+**Review (Claude, against the actual diff)**: `git status` matched the brief's file allowlist
+exactly — no `PLAN.md`/`PROJECT_LOG.md` edits, nothing outside the ten listed files/new files
+touched. Read every file in full: `GET /audit-log` (new `app/api/audit.py` +
+`app/schemas/audit.py`) is firm-scoped, `order_by(AuditLog.at.desc())`, clamps (not 422s) an
+over-large `limit` to 100 — matches the brief's stated reasoning for clamp-over-reject. Two new
+tests (firm isolation + newest-first ordering using explicit `at` timestamps rather than relying
+on Postgres `now()` ordering — a real, non-obvious correctness choice; limit-clamping with
+default/explicit/over-large cases) follow the `test_rollups.py` fixture convention exactly.
+`humanizeAuditAction`/`timeAgo` (added to `statusTone.ts`) cover the full real action vocabulary
+given in the brief with a generic non-crashing fallback for anything else — verified by
+cross-checking every `switch` case against the actual grep output, not just skimming. Topbar's
+placeholder search was fully replaced (not appended alongside) with a real expanding
+Cases+Documents dropdown, outside-click-to-close, Escape-to-close, **not** bound to ⌘K (correctly
+respects the Phase 8 header's deviation #2 — CommandPalette keeps sole ownership of that
+shortcut); documents are only fetched when the dropdown is actually open with a non-empty query,
+avoiding an eager firm-wide document load on every page. `NotificationBell`'s real feed
+(needs-review cases + active runs + 5 recent audit entries, deduped by a stable `key`) replaces
+the placeholder body while keeping the exact "No new notifications." empty-state string verbatim,
+per the brief. `RecentActivityStrip` (new) correctly returns `null` (not an empty-state block)
+when the log is empty, per the source doc's "optional, adds depth" framing. Overview's new
+needs-review quick-action list is gated on `reviewCases.length > 0`.
+One self-caught lint fix applied during review (not by pi, since pi had no way to run ruff without
+a live environment): `tests/test_audit_log_endpoint.py` used `datetime(..., tzinfo=timezone.utc)`
+instead of the `datetime.UTC` alias this codebase's ruff config prefers (`UP017` — the same style
+nit already present, unfixed, in the pre-existing `test_case_qa.py`) — fixed via `ruff --fix`
+rather than left as debt, since it was a one-line auto-fixable issue directly in new T8.5 code.
+Independently re-ran everything pi couldn't run itself: `npm run build`/`npm test` (16/16)/hex
+grep on the frontend side (all clean), and — the part pi explicitly couldn't verify — a full
+Docker rebuild of both images and `pytest` inside the container: **49/49 passing** (47 prior +
+the 2 new audit-log tests), plus `ruff check`/`mypy` clean on the backend via the host venv
+(same tool location established in T8.4, since the runtime image doesn't ship dev tools).
+**Verified live**, not just built: reloaded Overview through nginx and confirmed the new
+"Needs your review" list and "Recent activity" strip both render with genuine historical data
+from this firm's real prior agent runs (not fabricated) — "Petition finalized", "draft review
+gate approve", "Petition verified", "Petition drafted", "strategy review gate approve" all
+humanized correctly from real `audit_log` rows going back to earlier phases' live-verification
+work. Typed "chen" into the new topbar search and got a correctly grouped, live-filtered dropdown
+(Cases: Dr. Maria Chen; Documents: EX-2 · Dr. Maria Chen); confirmed ⌘K still opens only
+`CommandPalette` (the dropdown does not react to it) and Escape closes the dropdown without
+affecting the palette. Clicked the notification bell and got a real three-source feed (a
+needs-review case, an active run, five humanized audit entries) matching the brief's exact
+composition. **VERDICT: PASS**, no functional defects found — third clean pi round of Phase 8 (no
+re-guide needed on any of T8.2/T8.3/T8.5).
+
+**Phase 8 (CRM Dashboard Shell) is now complete** — all five tasks (T8.1/T8.4 built directly,
+T8.2/T8.3/T8.5 via `/pi-build` with zero re-guide rounds needed across all three) shipped, live-
+verified through a rebuilt Docker stack against real firm data at every step, not just build/test
+green. Three deliberate, disclosed deviations from the source doc (`casewright-dashboard-shell-
+plan.md`) held up end-to-end: Clients stayed a computed roll-up rather than gaining a speculative
+new table; ⌘K never got double-bound; the Deadlines rail's RFE-deadline gap (T8.2) was cleanly
+closed by T8.4 exactly as planned. Nothing in this phase has been committed to git yet — left for
+the user to review the full diff before committing, same as Phase 6's practice.
+
 ## Known Issues / Open TODOs
 
 All four plan phases now have code-level completeness (see `PLAN.md`), and both major

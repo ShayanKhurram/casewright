@@ -137,3 +137,48 @@ async def test_document_url_is_tenant_scoped(db_session: AsyncSession, client: A
         f"/api/cases/{case_id}/documents/{document_id}/url", headers={"Authorization": f"Bearer {token_b}"}
     )
     assert cross_tenant.status_code == 404
+
+
+async def test_firmwide_documents_are_tenant_scoped_and_filterable(
+    db_session: AsyncSession, client: AsyncClient, monkeypatch
+):
+    """GET /documents (Phase 8, T8.4) — firm-wide, unlike every other document route which is
+    scoped under a single case."""
+    _mock_storage(monkeypatch)
+    _firm_a, _user_a = await _make_firm_and_user(db_session, email="e@firm-e.test", password="pw-12345678")
+    _firm_b, _user_b = await _make_firm_and_user(db_session, email="f@firm-f.test", password="pw-12345678")
+    token_a = await _login(client, "e@firm-e.test", "pw-12345678")
+    token_b = await _login(client, "f@firm-f.test", "pw-12345678")
+    headers_a = {"Authorization": f"Bearer {token_a}"}
+
+    case_res = await client.post(
+        "/api/cases", headers=headers_a, json={"beneficiary_name": "Ada Lovelace", "visa_category": "EB-1A"}
+    )
+    case_id = case_res.json()["id"]
+
+    await client.post(
+        f"/api/cases/{case_id}/documents",
+        headers=headers_a,
+        data={"kind": "cv"},
+        files={"file": ("cv.pdf", b"%PDF-1.4", "application/pdf")},
+    )
+    await client.post(
+        f"/api/cases/{case_id}/documents",
+        headers=headers_a,
+        data={"kind": "award"},
+        files={"file": ("award.pdf", b"%PDF-1.4", "application/pdf")},
+    )
+
+    all_docs = await client.get("/api/documents", headers=headers_a)
+    assert all_docs.status_code == 200
+    assert len(all_docs.json()) == 2
+    assert {d["beneficiary_name"] for d in all_docs.json()} == {"Ada Lovelace"}
+
+    kind_filtered = await client.get("/api/documents?kind=award", headers=headers_a)
+    assert kind_filtered.status_code == 200
+    assert len(kind_filtered.json()) == 1
+    assert kind_filtered.json()[0]["kind"] == "award"
+
+    cross_tenant = await client.get("/api/documents", headers={"Authorization": f"Bearer {token_b}"})
+    assert cross_tenant.status_code == 200
+    assert cross_tenant.json() == [], "firm B must not see firm A's documents"

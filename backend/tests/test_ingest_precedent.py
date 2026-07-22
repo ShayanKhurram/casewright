@@ -1,4 +1,4 @@
-"""Closes a gap flagged in PLAN.md T4.4's review: precedent ingestion needs the same tenancy
+"""Closes a gap flagged in docs/internal/PLAN.md T4.4's review: precedent ingestion needs the same tenancy
 discipline as everything else in this codebase, and that wasn't actually tested — only
 py_compile'd and manually traced. This is the real test.
 

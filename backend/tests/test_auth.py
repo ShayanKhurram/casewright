@@ -58,7 +58,7 @@ async def test_me_requires_valid_token(client: AsyncClient):
 
 
 async def test_me_includes_firm_name_not_just_id(db_session: AsyncSession, client: AsyncClient):
-    """The UI must never render a raw firm UUID (casewright-ui-redesign-plan.md §1) — /auth/me
+    """The UI must never render a raw firm UUID (docs/internal/casewright-ui-redesign-plan.md §1) — /auth/me
     has to resolve it to a name for the user menu to have anything sensible to show."""
     await _seed_user(db_session)
     login_res = await client.post(

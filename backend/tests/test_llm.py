@@ -1,7 +1,7 @@
 """call_structured's retry logic — including the "model answered in plain text instead of
 calling the tool" case, found by actually running a graph against a live model (Ollama Cloud,
 glm-5.2): forced tool_choice isn't honored 100% of the time on complex nested schemas. See
-PROJECT_LOG.md for the live-run context this fix came from."""
+docs/internal/PROJECT_LOG.md for the live-run context this fix came from."""
 
 from types import SimpleNamespace
 

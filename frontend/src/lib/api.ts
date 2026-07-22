@@ -1,3 +1,5 @@
+/** Thin fetch wrapper + JWT storage. Every API call in the app goes through `apiFetch`, which
+ * attaches the bearer token and prefixes `/api` — no component talks to `fetch` directly. */
 const TOKEN_KEY = "casewright_token";
 
 export function getToken(): string | null {
