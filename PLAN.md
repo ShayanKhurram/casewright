@@ -327,14 +327,41 @@ system and ui-kit being right.
       intake → profile → assess_criterion → strategy → strategy_gate correctly, and the run
       land on `status=waiting_review`/`current_gate=strategy_review` with `strategy_gate`
       correctly absent from `completed_nodes`.
-- [ ] T5.4 (pi): loading system — skeleton primitives (`SkeletonLine`/`Block`/`Pill`/`Row`,
-      shimmer keyframe) + per-screen skeleton layouts + `PipelineTracker` (topology stepper
-      consuming T5.3's progress field) + progressive-reveal staggering for criterion
-      cards/RFE objections/draft sections.
-- [ ] T5.5 (pi): Dashboard + Login re-skin, empty states, humanized error taxonomy (§7).
+- [x] T5.4 (pi): loading system, self-contained primitives only — `SkeletonLine`/`Block`/
+      `Pill`/`Row` (shimmer keyframe, generic/content-agnostic) + `PipelineTracker` (topology
+      stepper for both graphs as frontend constants, consuming T5.3's `agent_runs.progress`
+      shape: `current_node`/`completed_nodes`/`node_timestamps`/`fan_out`). New files only
+      under `components/ui/` — no existing-screen edits.
+      **Re-scoped from the source plan's T5.4** (Claude decision, 2026-07-22): the plan bundles
+      per-screen skeleton layouts and progressive-reveal staggering into this same task, but
+      those screens (Dashboard, Criteria tab, Draft reviewer, RFE tab) are still light-themed
+      until T5.5–T5.7 re-skin them — building a dark skeleton for a still-light screen would
+      flash dark-then-light on every load, a real defect, not a nitpick. Moved "matching
+      skeleton layout + progressive-reveal for this screen" into each screen's own re-skin task
+      below, where it belongs (built once, themed once, no mismatch).
+      · reviewed 2026-07-22 @ (pending commit). One clean pi round, no re-guide needed —
+      first `/pi-build` delegation since fixing the `pi-role.md` absolute-path bug (see the
+      T5.2 incident above); pi correctly stayed in scope end-to-end this time (no self-commit,
+      no ledger edits — it even correctly flagged in its own report that `PLAN.md`'s diff was
+      mine, not its). `Skeleton.tsx` (`SkeletonLine`/`Block`/`Pill`/`Row` + a `SkeletonGate`
+      wrapper implementing the plan's 150ms anti-flash / 200ms crossfade rule inside the
+      primitive itself, so callers get it for free) and `components/pipeline/` (`graphTopology.ts`
+      — hand-written node-order constants matching the actual backend graphs exactly, verified
+      against `petition_graph.py`/`rfe_graph.py`; `PipelineTracker.tsx` — horizontal stepper with
+      the exact done/active/gate-waiting/pending/failed precedence specified in the brief, a
+      live elapsed timer via one shared 1s interval, and a fan-out fraction ring for
+      `assess_criterion`). Independently re-verified everything myself (not trusting the
+      self-report): `npm run build` clean, `npm test` 14/14 unaffected, hex grep clean, and
+      `git status` confirms only the 3 new files + the one permitted `ui/index.ts` barrel edit.
+- [ ] T5.5 (pi): Dashboard + Login re-skin, empty states, humanized error taxonomy (§7),
+      + `DashboardSkeleton` (exact card-grid shape) using T5.4's primitives.
 - [ ] T5.6 (pi): Case Workspace tabs — Overview, Evidence, Criteria (verdict rails +
-      confidence meters + scoreboard), Strategy (+ gate actions).
+      confidence meters + scoreboard), Strategy (+ gate actions), + `CriteriaSkeleton`
+      (8–10 rail-carded rows) and progressive-reveal staggering (60ms, fade + 8px rise) as
+      criterion cards land in the matrix.
 - [ ] T5.7 (pi): Draft reviewer three-pane (section nav / body+citations / source panel) +
-      RFE workspace with DeadlineRing header + objection cards.
+      RFE workspace with DeadlineRing header + objection cards, + `DraftSkeleton` (heading +
+      paragraph masses with a right rail) and progressive-reveal for draft sections / RFE
+      objections as they're generated.
 - [ ] T5.8 (Claude): accessibility pass (WCAG AA per §9 — reuse the contrast-audit method
       from Phase 3's T3.4), reduced-motion verification, tablet responsive check, polish sweep.

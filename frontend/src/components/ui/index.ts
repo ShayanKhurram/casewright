@@ -38,3 +38,18 @@ export type { ToastProviderProps } from "./ToastProvider";
 
 export { default as EmptyState } from "./EmptyState";
 export type { EmptyStateProps, EmptyStateAction } from "./EmptyState";
+
+export {
+  SkeletonLine,
+  SkeletonBlock,
+  SkeletonPill,
+  SkeletonRow,
+  SkeletonGate,
+} from "./Skeleton";
+export type {
+  SkeletonLineProps,
+  SkeletonBlockProps,
+  SkeletonPillProps,
+  SkeletonRowProps,
+  SkeletonGateProps,
+} from "./Skeleton";

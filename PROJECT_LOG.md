@@ -506,6 +506,44 @@ after the T5.2 pi-drift incident below appended past it.)*
   from `completed_nodes`. (The model's actual output was also correct on the merits — an empty
   case correctly assessed all 8 criteria "absent" and recommended against filing, unprompted.)
 
+### 2026-07-22 (later still) — T5.4 loading system primitives (pi-built, Claude-reviewed)
+
+- First `/pi-build` delegation since fixing the `pi-role.md` absolute-path bug (see the T5.2
+  incident earlier this timeline) — launched with `--append-system-prompt` pointed at the real
+  workspace-root path this time, and checked `git log`/`git status` myself before reading pi's
+  self-report at all. Clean result: no self-commit, no ledger edits; pi's own report even
+  correctly noted that the `PLAN.md` diff in `git status` was mine (the T5.4 re-scoping below),
+  not something it touched. One round, no re-guide needed.
+- **Re-scoped T5.4 before delegating** (see `PLAN.md`): the source redesign plan bundles
+  per-screen skeleton layouts and progressive-reveal staggering into the same task as the
+  generic primitives, but Dashboard/Criteria/Draft/RFE screens are still light-themed until
+  T5.5–T5.7 re-skin them — a dark skeleton flashing in front of still-light content on every
+  load would be a real defect. Split it: T5.4 built only the self-contained, screen-agnostic
+  primitives; each screen's own skeleton + reveal animation moved into its respective T5.5/
+  T5.6/T5.7 re-skin task, where it can be themed once, correctly, alongside the screen itself.
+- Brief asked for: `Skeleton.tsx` (`SkeletonLine`/`Block`/`Pill`/`Row`, all using the existing
+  `animate-shimmer` keyframe from T5.1 — no new keyframe added) + a `SkeletonGate` wrapper
+  implementing the plan's "skeleton only appears past 150ms, 200ms crossfade" rule internally
+  so callers don't have to re-implement the anti-flash timer each time; and
+  `components/pipeline/graphTopology.ts` (hand-written `PETITION_TOPOLOGY`/`RFE_TOPOLOGY`
+  constants) + `PipelineTracker.tsx` (horizontal stepper consuming T5.3's `agent_runs.progress`
+  shape) with an exact node-state precedence specified in the brief (failed → done →
+  gate-waiting → active → pending) rather than left to pi's judgment, an active node's ring
+  pulse via `animate-ping` + a non-color arbitrary-value duration override
+  (`[animation-duration:1.8s]`, sidestepping the color/opacity-modifier Tailwind limitation
+  from the T5.2 incident entirely since this isn't a color value), a live elapsed-time label
+  driven by one shared 1s interval for the whole tracker (not one timer per node), and a small
+  SVG fraction ring + `n/m` counter for the fan-out node.
+- **Review (Claude, against the actual diff)**: read all 4 files in full. `graphTopology.ts`'s
+  node order was checked against the real `petition_graph.py`/`rfe_graph.py` `add_node`/
+  `add_edge` calls — matches exactly. `PipelineTracker`'s `deriveState()` implements the
+  specified precedence verbatim. Independently re-ran `npm run build` (clean, 1922 modules),
+  `npm test` (14/14, unaffected), a hex grep over the new files (none), and confirmed via
+  `git status` that the diff was exactly the 3 new files plus the one permitted edit to
+  `components/ui/index.ts` (Skeleton re-exports only, no `PipelineTracker` in the barrel per
+  the brief — it's graph-specific, not a generic ui-kit primitive). **VERDICT: PASS**, no
+  defects found. `PLAN.md` T5.4 marked `[x]`.
+
 ## Known Issues / Open TODOs
 
 All four plan phases now have code-level completeness (see `PLAN.md`), and both major
