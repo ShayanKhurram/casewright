@@ -169,8 +169,23 @@ built and self-tested (synthetic fixtures, scoring-logic unit tests), not an act
       in the script, not hidden) · reviewed 2026-07-22 @ 2964a90. Run live against the dev
       database (0/0 draft sections, no resolved gates yet — correctly reported as such rather
       than crashing on division by zero). Run duration by node and tokens per case are **not**
-      included — neither is derivable today —
-      that needs new columns (per-node timing, token usage capture from the Anthropic response)
-      that don't exist; noted honestly as a gap rather than half-built.
+      included — neither is derivable today — that needs new columns (per-node timing, token
+      usage capture from the Anthropic response) that don't exist; noted honestly as a gap
+      rather than half-built.
+
+**Phase 4 verified 2026-07-22**: 28/28 backend tests pass against real Postgres, ruff/mypy
+clean. Unlike the harness/tooling code (which is fully self-tested), the backup/restore
+rehearsal and MinIO versioning were run for real against the live containers, not just written
+— a genuine PASS on the row-count comparison across all 21 tables. The exit criterion itself
+("first design-partner firm live on real closed-case evals") is explicitly not claimed — it
+needs a real firm's real data and a real `ANTHROPIC_API_KEY`, neither available here. What's
+delivered is the tooling that firm would use.
+
+All four phases of the original implementation plan now have code-level completeness. Two
+verification gaps remain open across the whole project, both requiring resources this dev
+environment doesn't have: (1) a live Docker Compose smoke test for Phases 2–3 (blocked on the
+Docker Desktop build-pipeline issue — see PROJECT_LOG.md), and (2) a real LLM run for either
+graph against a live `ANTHROPIC_API_KEY` (both graphs are only verified against mocked LLM
+calls). Close both before any pilot-readiness claim.
 
 See `casewright-implementation-plan.md` §14 for full phase contents.

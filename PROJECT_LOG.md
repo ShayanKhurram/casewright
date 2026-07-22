@@ -168,6 +168,52 @@ Tests: `cd backend && pytest` (needs a reachable Postgres — `docker compose up
 - T3.5 (the actual "attorney runs a case end-to-end through the UI" walkthrough) is blocked on
   the Docker issue above — it needs a live stack, not component-level tests. Left undone rather
   than faked.
+- Built Phase 4 (Pilot hardening), the last phase in the original plan, continuing the
+  Claude/pi split. Claude built the golden-case eval harness (`app/eval/` — scoring as pure
+  functions, replay as a DB+LLM-dependent module reusing the petition graph's node functions
+  directly rather than driving the full interrupt/checkpoint machinery, since a golden-case
+  replay is a one-shot scoring run, not a gated workflow) and the backup/restore rehearsal.
+  pi built structured logging (structlog + request-id middleware + thread_id/run_id-correlated
+  runner logs + optional Sentry) and precedent ingestion.
+- Two things worth recording from this round:
+  - **A real Git-Bash/MSYS bug, not a Docker bug this time.** `ops/restore_rehearsal.sh` kept
+    failing with `pg_restore: could not open input file "C:/Users/.../rehearsal_....dump"` —
+    a Windows path, even though the script only ever references `/tmp/...` (a path meant for
+    the Linux container's filesystem, passed through `docker compose exec`). Git Bash's MSYS
+    layer was silently rewriting the POSIX-looking argument into a Windows path before docker
+    ever saw it. Fixed with `export MSYS_NO_PATHCONV=1` in both ops scripts. Distinct from the
+    earlier Docker Desktop daemon hangs — this one was a shell/argument-translation issue, not
+    an infrastructure one, and worth telling apart when debugging "docker command doesn't work
+    on Windows" symptoms in this repo going forward.
+  - **Reviewing pi's structured-logging diff caught a documentation-accuracy bug, not a
+    functional one.** `logging_config.py`'s docstring claimed stdlib loggers (uvicorn,
+    sqlalchemy) would flow through the same JSON renderer as structlog's own calls — false,
+    given the configured `PrintLoggerFactory` (true stdlib bridging needs
+    `structlog.stdlib.LoggerFactory` + `ProcessorFormatter`, which isn't what's wired up).
+    Nothing was broken at runtime — app-level logs via `get_logger()` really do render as JSON,
+    which is what the acceptance criterion actually asked for — but the comment overclaimed
+    what the code does, which is exactly the kind of thing that misleads the next person to
+    touch this file. Fixed the docstring and a related return-type annotation
+    (`structlog.stdlib.BoundLogger` → `structlog.typing.FilteringBoundLogger`, matching the
+    actual `wrapper_class`) rather than actually implementing full stdlib bridging, since that
+    wasn't in scope and the acceptance criterion didn't require it.
+  - Also closed a real test-coverage gap found during review rather than just flagging it:
+    T4.4's acceptance criterion called for a cross-firm retrieval test on the precedent
+    ingestion script, and pi's self-check was `py_compile` + manual trace only. Added
+    `tests/test_ingest_precedent.py` (ingest under firm A, confirm firm B's retrieval sees
+    nothing, plus the unknown-firm-id rejection path) rather than leave it as a noted-but-open
+    gap.
+- The backup/restore rehearsal was run for real, not just written: `pg_dump` from the live `db`
+  container → restore into a scratch database → row-count comparison across all 21 tables
+  (including the LangGraph `checkpoint_*` tables and `knowledge_chunks`) → every table matched
+  → `RESULT: PASS`. MinIO bucket versioning enabled and confirmed live
+  (`get_bucket_versioning` → `Status: Enabled`) against the running MinIO container.
+- All four phases of `casewright-implementation-plan.md` §14 now have code-level completeness.
+  What's NOT done, project-wide: a live Docker Compose smoke test for Phases 2–3 (the build
+  pipeline issue never fully resolved this session), and any real LLM run for either graph
+  (both are only verified against mocked Anthropic calls — there's no `ANTHROPIC_API_KEY` in
+  this environment). Both are prerequisites for an actual pilot-readiness claim, not optional
+  polish.
 
 ### 2026-07-21
 
@@ -192,13 +238,24 @@ Tests: `cd backend && pytest` (needs a reachable Postgres — `docker compose up
 
 ## Known Issues / Open TODOs
 
-- Phase 4 (pilot hardening) is not started — see `PLAN.md`.
-- **No live Docker Compose smoke test since Phase 1** (Docker Desktop's build pipeline has been
-  wedged for the rest of this session — see 2026-07-22 timeline). Phases 2 and 3 both have solid
-  test-level verification (real Postgres, real graph execution or component tests, mocked LLM
-  only) but not the "deploys and runs for real" check that Phase 0/1 got. Phase 3's T3.5 (the
-  actual attorney-runs-a-case-through-the-UI walkthrough) is explicitly blocked on this. Do a
-  full live-stack pass across Phases 2–3 before any pilot-readiness claim.
+All four plan phases now have code-level completeness (see `PLAN.md`). What's left is
+verification depth, not missing features — the two items below are the real gates before any
+pilot-readiness claim; everything after them is smaller and more local.
+
+- **No live Docker Compose smoke test since Phase 1** (Docker Desktop's build pipeline was
+  wedged for the rest of this session — see 2026-07-22 timeline, both the original incident and
+  its recurrence). Phases 2–4 all have solid test-level verification (real Postgres, real graph
+  execution or component tests, mocked LLM only) but not the "deploys and runs for real" check
+  that Phase 0/1 got. Phase 3's T3.5 (the actual attorney-runs-a-case-through-the-UI walkthrough)
+  is explicitly blocked on this. Do a full live-stack pass before any pilot-readiness claim.
+- **No real LLM run for either graph.** There is no `ANTHROPIC_API_KEY` in this dev environment,
+  so every graph test (RFE and petition) mocks `call_structured`. What's verified: sequencing,
+  fan-out/join, gate pause/resume, revision-loop bounds, DB writes, citation-integrity checking
+  — all the mechanical correctness. What's NOT verified: whether the actual prompts (§5's
+  conventions — adversarial-officer framing, closed-world citation, calibrated confidence)
+  produce good output against a real model. Run both graphs against a live key, and run the
+  golden-case harness against at least one real (not synthetic) firm case, before either
+  workflow is called pilot-ready.
 - `audit_log` immutability relies on a trigger rather than a separate non-owner DB role; revisit
   if a compliance review specifically wants privilege-based (not trigger-based) enforcement.
 - Frontend accessibility: WCAG AA contrast has been audited and fixed for the verdict palette
@@ -230,3 +287,14 @@ Tests: `cd backend && pytest` (needs a reachable Postgres — `docker compose up
   GateBanner, CriterionMatrix, StrategyMemo only, per the plan's "highest-value components"
   scoping. Shell, OverviewTab, AgentRunTimeline, DeadlineRing, and every data-fetching tab
   component (EvidenceTab, CriteriaTab, StrategyTab, DraftsTab, RFETab) have zero test coverage.
+- `scripts/report_metrics.py`'s gate-wait-time is a heuristic (delta between the
+  `agent_run.gate_decision` audit entry and whatever audit entry precedes it for that case),
+  not an exact measurement — `agent_runs` only keeps one `updated_at`, overwritten on every
+  status transition, so the true gate-open timestamp isn't separately recorded anywhere. Add a
+  dedicated `gate_opened_at` column if precision matters later. Run-duration-by-node and
+  tokens-per-case (also named in plan §11) aren't reported at all — neither is derivable from
+  the current schema; would need per-node timing and captured Anthropic response usage data.
+- The golden-case eval harness (`app/eval/`) has only ever been run against its own shipped
+  synthetic fixture with a mocked LLM. It has not been run against real firm data (none exists
+  in this environment) or a real model — both are prerequisites for it actually functioning as
+  the "sales pilot instrument" the plan describes.
