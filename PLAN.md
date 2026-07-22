@@ -207,9 +207,51 @@ than `gpt-oss:20b` in a side-by-side test), `gemma4:31b` (vision/OCR fallback).
       network calls once a working key existed in `.env`, because it relied on the *absence* of
       a key rather than explicitly mocking the LLM. Force-mocked via an autouse fixture instead.
 
-**This closes the project's other major open gap** (alongside the still-open Docker Compose
-build-pipeline issue — see `PROJECT_LOG.md`). Both graphs have now been verified against a real
-model, not just mocked ones, for at least one real workflow (RFE). The petition graph's fan-out
-has not yet had the same live-model treatment — recommended before calling it pilot-ready.
+**This closed one of the project's two major open gaps.** Both graphs have now been verified
+against a real model for at least one real workflow (RFE, fully end-to-end). The other gap —
+the Docker Compose build pipeline — is fixed below, same day, which then made it possible to
+finish verifying the petition graph too.
+
+## Post-Phase-4 — Docker build root cause found and fixed, petition graph verified live (2026-07-22)
+
+The "wedged Docker daemon" that blocked live verification all session was diagnosed properly
+instead of retried blindly: a minimal trivial build (`FROM alpine`) completed in 5 seconds while
+the daemon was supposedly "stuck," which meant the daemon itself was never the problem. The real
+cause: neither `backend/` nor `frontend/` had a `.dockerignore`, so every build sent the entire
+directory as build context — including `backend/.venv` (confirmed at **17,036 files**) and
+`frontend/node_modules`. Reading/hashing/transferring that many files across the WSL2 filesystem
+boundary is what looked like "wedged, near-zero CPU" from the outside.
+
+- [x] Added `backend/.dockerignore` and `frontend/.dockerignore`. Backend build: never-completes
+      → 89s. Full `docker compose up -d --build` (all 5 services): ~1 minute. · reviewed
+      2026-07-22 @ 15e15bb
+- [x] With the stack finally buildable, ran the petition graph live through the real deployed
+      Docker stack (not the local-uvicorn workaround from the RFE verification pass) — the
+      treatment it hadn't gotten yet: `Send` fan-out over all 10 EB-1A criteria confirmed
+      working; strategy synthesis was excellent (correctly distinguished strong vs. weak
+      criteria, explicitly reasoned about why NOT to pad with weak ones — the prompt's intended
+      guidance, followed); drafting produced all 4 sections successfully on the first pass;
+      verification confirmed working via direct invocation on the persisted sections (2 passed
+      cleanly, 2 correctly flagged real issues, one with 3 genuine citation blockers). The one
+      full continuous run hit a retry-exhaustion failure on verification's fact-check call — a
+      known, already-documented model-reliability limit on long prompts (see `llm.py`'s
+      `MAX_ATTEMPTS` comment), not a code defect; every node was separately confirmed correct.
+      · reviewed 2026-07-22 @ 15e15bb
+- [x] Fixed a real schema bug the live run surfaced: `strategy_memos.viability` was
+      `String(50)`, but real model output is a nuanced explanatory assessment, not a short
+      label — correct model behavior, wrong column width. Widened via a proper new migration.
+- [x] Alembic hygiene found while writing that migration: `compare_type` wasn't enabled, so
+      autogenerate never detected column-type/length changes at all — the viability migration
+      had to be hand-written for exactly that reason. Enabled it. Also added an `include_object`
+      filter so autogenerate stops proposing to `DROP` the LangGraph `checkpoint_*` tables it
+      doesn't manage — every autogenerate run this session silently included those drops, which
+      would have been a real incident had one ever been accepted un-reviewed.
+
+**Both of the project's major open gaps are now closed**: the live Docker Compose deploy works
+(root cause fixed, not worked around), and both graphs have real-model verification, not just
+mocked. Remaining known limitation, documented rather than hidden: this specific model
+(`glm-5.2` via Ollama Cloud) occasionally exhausts its retry budget on long-prompt tool calls —
+worth monitoring as real usage accumulates, and worth considering `MAX_ATTEMPTS` higher or
+prompt-shortening if it recurs often.
 
 See `casewright-implementation-plan.md` §14 for full phase contents.
