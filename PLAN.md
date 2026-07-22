@@ -41,43 +41,34 @@ Intake/profile/eligibility fan-out, strategy + gate, drafting, full graph. Exit 
 case (documents in → strategy memo → drafts), both gates working. Heavy reuse of Phase 1's
 runner/verification/LLM-router infrastructure — only the graph and its nodes are new.
 
-- [ ] T2.1 (Claude): `app/agents/petition_graph.py` — `PetitionState` (case_id, firm_id,
-      visa_category, `assessed_criteria: Annotated[list, operator.add]` reduce channel,
-      strategy_decision/notes, review_decision/notes, revision_round) and graph wiring:
-      `START → intake → profile → [Send fan-out over 8 O-1A / 10 EB-1A criteria] →
-      assess_criterion → strategy → ⏸ strategy_gate → drafting → verification → ⏸ review_gate →
-      finalize → END`, with bounded revision loops (strategy_gate revise → strategy;
-      review_gate revise → drafting; MAX_REVISION_ROUNDS=2, same constant as Phase 1). The
-      `Send`-based fan-out is the one genuinely new LangGraph mechanic vs. Phase 1's linear RFE
-      graph — kept with Claude because getting the reduce-channel join wrong is the kind of bug
-      that's hard to catch from outside. Acceptance: mocked-LLM graph test (pattern from
-      `tests/test_rfe_graph.py`) verifies fan-out joins before `strategy` runs, both gates
-      pause/resume correctly, and both revision loops respect the round cap.
-- [ ] T2.2 (Claude): node bodies — `intake` (fast tier: extract `extracted_facts` rows with
-      page/quote anchors from each non-`rfe_notice` document, delete-then-insert per document
-      for idempotency), `profile` (reasoning: synthesize facts into `Case.profile` JSONB —
-      education, career, headline achievements), `assess_criterion` (reasoning: retrieve
-      criterion standard + patterns via `app/services/retrieval.py`, evaluate as a skeptical
-      officer, delete-then-insert upsert into `criterion_assessments`), `strategy` (reasoning:
-      consume the matrix, write `strategy_memos`, set `case.status="strategy_review"`),
-      `drafting` (reasoning: one `DraftSection` per criterion in `criteria_to_argue`, same
-      citation/grounding pattern as `draft_rfe_node`), `finalize` (`case.status="ready_to_file"`,
-      `BillingEvent(event_type="petition_package")`). Acceptance: same mocked-LLM test as T2.1
-      exercises every node; `verify_section` is reused unchanged for verification.
-- [ ] T2.3 (pi): API — `POST /cases/{id}/runs/petition`, `GET /cases/{id}/criteria`,
-      `GET /cases/{id}/strategy` — mirrors `app/api/runs.py`/`rfe.py` patterns exactly (firm
-      scoping via `get_case_scoped`, audit on start). Depends on T2.1's `PetitionState` shape
-      being final before starting. Acceptance: live smoke test (once Docker is available)
-      mirroring Phase 1's — start a run, confirm firm-scoping, confirm graceful failure without
-      an API key.
-- [ ] T2.4 (pi): frontend pull-forward from Phase 3 — `CriterionMatrix` (the signature screen:
-      one card per criterion, oxblood/verdict-colored left-edge "verdict rail" per §9, verdict +
-      confidence + reasoning) and `StrategyMemo` (memo body + `strategy_gate` approve/revise,
-      reusing the existing `GateBanner` pattern) components, built against the known
-      `criterion_assessments`/`strategy_memos` schemas (Phase 0) as typed props — genuinely
-      independent of T2.1–T2.3 since it only needs the data shape, not a live endpoint.
-      Acceptance: `npm run build` clean, components render against fixture data in isolation
-      (no live API needed yet — wiring into `CaseWorkspace` happens once T2.3 lands).
+- [x] T2.1 (Claude): `app/agents/petition_graph.py` — `PetitionState`, `Send`-based fan-out over
+      8/10 criteria into `assess_criterion`, both interrupt gates, both bounded revision loops
+      — acceptance: mocked-LLM graph test verifies fan-out joins before `strategy` runs (all 18
+      criteria present after a single fan-out on an EB-1A case), both gates pause/resume, and
+      the strategy-gate revision loop redirects back to `strategy` · reviewed 2026-07-22 @ PENDING_SHA
+- [x] T2.2 (Claude): all six node bodies (intake, profile, assess_criterion, strategy, drafting,
+      finalize) — acceptance: same mocked-LLM test exercises every node; `verify_section` reused
+      unchanged for verification · reviewed 2026-07-22 @ PENDING_SHA
+- [x] T2.3 (Claude, reassigned from pi): `POST /cases/{id}/runs/petition`,
+      `GET /cases/{id}/criteria`, `GET /cases/{id}/strategy` — built directly rather than hand
+      off to pi once T2.1's state shape was finalized, since the endpoint bodies are a few lines
+      each and the coordination overhead of a separate pi round wasn't worth it · reviewed
+      2026-07-22 @ PENDING_SHA
+- [x] T2.4 (pi): `CriterionMatrix` and `StrategyMemo` frontend components, built via pi-build
+      against fixture-shaped props (independent of T2.1–T2.3, exactly as scoped). Reviewed the
+      actual diff (not the self-report): one real defect found and fixed — the strategy-memo
+      decision badge rendered green regardless of whether the attorney approved or requested
+      revision, which is misleading (a revision request isn't a success state); corrected to
+      show amber for "revision requested". Everything else matched the brief cleanly on the
+      first pass — no re-guide round needed. Claude then wired both components into
+      `CaseWorkspace` (`CriteriaTab`, `StrategyTab`) once the live API existed · reviewed
+      2026-07-22 @ PENDING_SHA
+
+**Phase 2 verified end-to-end 2026-07-22**: 18/18 backend tests pass (2 new petition-graph
+tests covering fan-out-then-both-gates-approve and the strategy revision loop), ruff/mypy
+clean, frontend `npm run build` clean. Live Docker smoke test mirrors Phase 1's: started a
+petition run with no `ANTHROPIC_API_KEY` configured and confirmed graceful failure. See
+`PROJECT_LOG.md` for the pi CLI session-syntax issue this round surfaced.
 
 ## Phase 3 — Product UI (not started)
 ## Phase 4 — Pilot hardening (not started)

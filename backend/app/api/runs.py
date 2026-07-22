@@ -17,6 +17,44 @@ from app.services import audit
 router = APIRouter(tags=["runs"])
 
 
+@router.post("/cases/{case_id}/runs/petition", response_model=RunOut, status_code=201)
+async def start_petition_run(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    case: Case = Depends(get_case_scoped),
+) -> AgentRun:
+    await audit.record(
+        db,
+        firm_id=case.firm_id,
+        actor=f"user:{current_user.email}",
+        action="petition_run.started",
+        case_id=case.id,
+        detail={},
+    )
+    await db.flush()
+
+    run_id, _task = await runner.start_run(
+        case_id=case.id,
+        firm_id=case.firm_id,
+        graph="petition",
+        initial_state={
+            "case_id": str(case.id),
+            "firm_id": str(case.firm_id),
+            "visa_category": case.visa_category,
+            "assessed_criteria": [],
+            "strategy_decision": None,
+            "strategy_notes": None,
+            "review_decision": None,
+            "review_notes": None,
+            "revision_round": 0,
+        },
+    )
+
+    run = await db.get(AgentRun, run_id)
+    assert run is not None
+    return run
+
+
 @router.post("/cases/{case_id}/runs/rfe", response_model=RunOut, status_code=201)
 async def start_rfe_run(
     payload: StartRFERunRequest,
@@ -91,7 +129,7 @@ async def submit_gate_decision(
         db,
         firm_id=run.firm_id,
         actor=f"user:{current_user.email}",
-        action="rfe_run.gate_decision",
+        action="agent_run.gate_decision",
         case_id=run.case_id,
         detail={"run_id": str(run.id), "gate": run.current_gate, "decision": payload.decision},
     )

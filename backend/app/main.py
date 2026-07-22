@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import auth, cases, documents, drafts, health, rfe, runs
+from app.api import assessment, auth, cases, documents, drafts, health, rfe, runs
 from app.config import get_settings
 from app.services.storage import ensure_bucket
 
@@ -38,3 +38,4 @@ app.include_router(documents.router, prefix="/api")
 app.include_router(runs.router, prefix="/api")
 app.include_router(rfe.router, prefix="/api")
 app.include_router(drafts.router, prefix="/api")
+app.include_router(assessment.router, prefix="/api")

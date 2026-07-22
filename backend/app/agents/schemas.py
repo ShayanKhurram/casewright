@@ -1,5 +1,5 @@
-"""Structured-output contracts for LLM calls in the RFE graph. Every node response is validated
-against one of these before it's allowed to touch Postgres."""
+"""Structured-output contracts for LLM calls in the agent graphs. Every node response is
+validated against one of these before it's allowed to touch Postgres."""
 
 from datetime import date
 from typing import Literal
@@ -47,3 +47,39 @@ class DraftedSection(BaseModel):
 class FactCheckResult(BaseModel):
     blockers: list[str] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
+
+
+class ExtractedFactOut(BaseModel):
+    fact_type: str = Field(description='e.g. "award", "publication", "role", "salary".')
+    payload: dict = Field(description="Structured detail for this fact — shape varies by fact_type.")
+    source_page: int | None = None
+    source_quote: str | None = Field(default=None, description="Verbatim anchor from the source document.")
+
+
+class ExtractedFactsOut(BaseModel):
+    facts: list[ExtractedFactOut]
+
+
+class BeneficiaryProfileOut(BaseModel):
+    education: list[str] = Field(default_factory=list)
+    career: list[str] = Field(default_factory=list)
+    headline_achievements: list[str] = Field(default_factory=list)
+
+
+class CriterionAssessmentOut(BaseModel):
+    verdict: Literal["met", "partial", "weak", "absent"]
+    confidence: float = Field(ge=0.0, le=1.0)
+    standard: str = Field(description="The regulatory standard, restated concisely.")
+    analysis: str = Field(description="How this record measures against the standard.")
+    gaps: str = Field(description="What's missing or weak, if anything. Empty string if none.")
+    evidence_refs: list[str] = Field(default_factory=list, description='Exhibit labels, e.g. "EX-3".')
+
+
+class StrategyOut(BaseModel):
+    recommended_category: str = Field(description='"O-1A" or "EB-1A".')
+    viability: str
+    criteria_to_argue: list[str] = Field(description="criterion_key values to argue in the petition.")
+    criteria_to_abandon: list[str] = Field(default_factory=list)
+    evidence_gaps: list[str] = Field(default_factory=list)
+    rfe_risks: list[str] = Field(default_factory=list)
+    narrative: str

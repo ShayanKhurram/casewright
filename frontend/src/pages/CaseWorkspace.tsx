@@ -2,14 +2,16 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 
+import CriteriaTab from "../components/CriteriaTab";
 import DraftsTab from "../components/DraftsTab";
 import EvidenceTab from "../components/EvidenceTab";
 import RFETab from "../components/RFETab";
 import StatusPill from "../components/StatusPill";
+import StrategyTab from "../components/StrategyTab";
 import { apiFetch } from "../lib/api";
 import { Case } from "../types";
 
-const TABS = ["Evidence", "RFE", "Drafts"] as const;
+const TABS = ["Evidence", "Criteria", "Strategy", "Drafts", "RFE"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function CaseWorkspace() {
@@ -49,8 +51,10 @@ export default function CaseWorkspace() {
       </div>
 
       {tab === "Evidence" && <EvidenceTab caseId={caseId} />}
-      {tab === "RFE" && <RFETab caseId={caseId} />}
+      {tab === "Criteria" && <CriteriaTab caseId={caseId} />}
+      {tab === "Strategy" && <StrategyTab caseId={caseId} />}
       {tab === "Drafts" && <DraftsTab caseId={caseId} />}
+      {tab === "RFE" && <RFETab caseId={caseId} />}
     </div>
   );
 }

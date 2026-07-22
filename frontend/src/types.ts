@@ -102,3 +102,27 @@ export interface Draft {
   version: number;
   sections: DraftSection[];
 }
+
+export interface CriterionAssessment {
+  id: string;
+  case_id: string;
+  criterion_key: string; // e.g. "eb1a.awards", "o1a.critical_employment"
+  verdict: "met" | "partial" | "weak" | "absent";
+  confidence: number; // 0.0-1.0
+  reasoning: { standard?: string; analysis?: string; gaps?: string };
+  evidence_refs: string[]; // exhibit labels like "EX-3"
+}
+
+export interface StrategyMemo {
+  id: string;
+  case_id: string;
+  recommended_category: string | null;
+  viability: string | null;
+  criteria_to_argue: string[]; // criterion_key values
+  criteria_to_abandon: string[];
+  evidence_gaps: string[];
+  rfe_risks: string[];
+  narrative: string | null;
+  attorney_decision: "approve" | "revise" | null;
+  attorney_notes: string | null;
+}

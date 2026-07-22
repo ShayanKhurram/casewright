@@ -8,16 +8,17 @@ import uuid
 from langgraph.types import Command
 
 from app.agents.checkpointer import get_checkpointer
+from app.agents.petition_graph import build_petition_graph
 from app.agents.rfe_graph import build_rfe_graph
-from app.agents.state import RFEState
+from app.agents.state import PetitionState, RFEState
 from app.db import session_scope
 from app.models.ops import AgentRun
 
-GRAPH_BUILDERS = {"rfe": build_rfe_graph}
+GRAPH_BUILDERS = {"rfe": build_rfe_graph, "petition": build_petition_graph}
 
 
 async def start_run(
-    *, case_id: uuid.UUID, firm_id: uuid.UUID, graph: str, initial_state: RFEState
+    *, case_id: uuid.UUID, firm_id: uuid.UUID, graph: str, initial_state: RFEState | PetitionState
 ) -> tuple[uuid.UUID, asyncio.Task]:
     """Returns (run_id, task) — API callers can ignore the task (it's already scheduled and
     runs in the background); tests await it directly to observe the run reach its next pause."""
@@ -42,7 +43,9 @@ async def resume_run(*, run_id: uuid.UUID, decision: str, notes: str | None) -> 
     return asyncio.create_task(_resume(run_id, graph, thread_id, decision, notes))
 
 
-async def _drive(run_id: uuid.UUID, graph_name: str, thread_id: str, initial_state: RFEState) -> None:
+async def _drive(
+    run_id: uuid.UUID, graph_name: str, thread_id: str, initial_state: RFEState | PetitionState
+) -> None:
     config = {"configurable": {"thread_id": thread_id}}
     try:
         async with get_checkpointer() as checkpointer:
