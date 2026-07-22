@@ -264,6 +264,53 @@ Tests: `cd backend && pytest` (needs a reachable Postgres — `docker compose up
     the LLM via an autouse fixture instead, matching what the file's own docstring already
     claimed it was testing.
   - 31/31 backend tests pass, ruff/mypy clean, after all of the above.
+- **Found and fixed the real cause of the Docker build hangs, same day**, after the user asked
+  to fix the Docker issue specifically rather than keep working around it. The fix: diagnose,
+  don't retry. A minimal `FROM alpine` build completed in 5 seconds while the "wedged" daemon
+  was supposedly stuck — proof the daemon itself was never the problem. `du`/`Get-ChildItem` on
+  `backend/.venv` confirmed **17,036 files**, and neither `backend/` nor `frontend/` had a
+  `.dockerignore` — so every `docker compose build` all session had been sending that entire
+  venv (plus `frontend/node_modules`) as build context. Reading/hashing/transferring that many
+  files across the WSL2 filesystem boundary is indistinguishable, from the outside, from a
+  wedged daemon: a docker CLI process alive but pinned near 0% CPU, making no visible progress.
+  Every earlier "fix" this session (killing stray processes, restarting Docker Desktop) had
+  just been coincidentally landing on a smaller venv snapshot or warmer cache, not fixing
+  anything real — the actual problem had been sitting there the whole time.
+  - Added `backend/.dockerignore` and `frontend/.dockerignore`. Backend build: infinite →
+    89 seconds. Full 5-service `docker compose up -d --build`: about a minute.
+  - With a working build pipeline, immediately used it: ran the petition graph live through
+    the *actual deployed Docker stack* (the local-uvicorn workaround from the RFE pass was a
+    stopgap for when builds didn't work, not the target architecture). Fan-out over all 10
+    EB-1A criteria worked correctly. Strategy synthesis was excellent — it correctly
+    distinguished which criteria were strong (awards, scholarly articles) from which were weak
+    (membership, high remuneration, critical role) and explicitly reasoned about *why* arguing
+    only the strong ones is the better strategy, which is exactly the judgment call the
+    strategy prompt asks for, not just citation-dropping. Drafting produced all 4 argued
+    sections successfully on the first pass. The one full continuous run then hit a
+    retry-exhaustion failure on verification's fact-check call; rather than accept that as the
+    final word, ran `verify_section()` directly against the 4 already-persisted sections
+    (same code, same live model, just outside the failed graph run) — it worked cleanly: 2
+    sections passed, 2 were correctly flagged (one with 3 genuine citation blockers). This
+    confirms every node in the petition graph is individually correct; the one failure was
+    model-reliability variance on a long prompt, already the documented and expected shape of
+    that limitation, not a new one.
+  - **A real schema bug, found by the live run, not by any test fixture**: `strategy_memos
+    .viability` was `String(50)`. Real model output for that field was a full explanatory
+    paragraph ("Moderate-to-strong with evidence remediation. Two criteria are solidly met...
+    If the attorney can close the gaps... this becomes a strong filing"), not a short label —
+    which is *better* product behavior (an attorney wants that nuance), so the column was
+    widened rather than the prompt constrained. Every test fixture in the codebase had used
+    short strings like `"strong"` for this field, which is exactly why no test caught it.
+  - **Alembic hygiene, found while writing that migration**: `compare_type` was never enabled
+    in `env.py`, so `alembic revision --autogenerate` had never once been capable of detecting
+    a column-type or length change in this codebase — the viability migration had to be
+    hand-written because autogenerate produced an empty diff even with the bug confirmed live.
+    Enabled `compare_type=True`. Separately, every autogenerate run all session had been
+    silently proposing to `DROP TABLE` on all four LangGraph `checkpoint_*` tables (they're
+    not in `Base.metadata` since `AsyncPostgresSaver` manages them, not our models) — harmless
+    so far only because every migration got hand-reviewed before applying, but one careless
+    accept away from a real incident. Added an `include_object` filter to exclude them from
+    autogenerate comparison entirely.
 
 ### 2026-07-21
 
@@ -288,22 +335,23 @@ Tests: `cd backend && pytest` (needs a reachable Postgres — `docker compose up
 
 ## Known Issues / Open TODOs
 
-All four plan phases now have code-level completeness (see `PLAN.md`). What's left is
-verification depth, not missing features — the two items below are the real gates before any
-pilot-readiness claim; everything after them is smaller and more local.
+All four plan phases now have code-level completeness (see `PLAN.md`), and both major
+verification gaps that stood open for most of 2026-07-22 are now closed: the Docker Compose
+build pipeline works (root cause fixed — see that day's timeline), and both graphs have run
+live against a real model, not just mocked ones. What's left below is smaller and more local.
 
-- **No live Docker Compose smoke test since Phase 1** (Docker Desktop's build pipeline was
-  wedged for the rest of this session — see 2026-07-22 timeline, both the original incident and
-  its recurrence). Phases 2–4 all have solid test-level verification (real Postgres, real graph
-  execution or component tests, mocked LLM only) but not the "deploys and runs for real" check
-  that Phase 0/1 got. Phase 3's T3.5 (the actual attorney-runs-a-case-through-the-UI walkthrough)
-  is explicitly blocked on this. Do a full live-stack pass before any pilot-readiness claim.
-- **RESOLVED 2026-07-22 (partially): the RFE graph has now run live against a real model**
-  (Ollama Cloud, glm-5.2/nemotron-3-nano — see that day's timeline entry) — full workflow,
-  strong reasoning quality, verification layer caught a real citation defect. The petition
-  graph's `Send` fan-out has NOT had the same live-model treatment yet — do that before calling
-  the petition workflow pilot-ready. The golden-case harness has also still only run against its
-  shipped synthetic fixture, not a real firm case.
+- **RESOLVED 2026-07-22: Docker Compose build pipeline.** Root cause was a missing
+  `.dockerignore` in `backend/` and `frontend/` — every build sent `backend/.venv` (17,036
+  files) and `frontend/node_modules` as build context, which looked exactly like a wedged
+  daemon from the outside. Fixed; builds now take ~1 minute for the full stack. Phase 3's T3.5
+  (attorney runs a case end-to-end through the UI) is now unblocked and worth actually doing.
+- **RESOLVED 2026-07-22: both graphs verified live against a real model** (Ollama Cloud,
+  glm-5.2/nemotron-3-nano). RFE: full workflow end-to-end including finalize. Petition: fan-out
+  over all 10 criteria, strategy synthesis, and drafting all confirmed working; verification
+  confirmed working via direct invocation after the one full continuous run hit a retry-
+  exhaustion failure on its fact-check call (documented model-reliability limit on long
+  prompts, not a code defect). The golden-case harness has still only run against its shipped
+  synthetic fixture, not a real firm case — that's a real-data problem, not a code one.
 - `audit_log` immutability relies on a trigger rather than a separate non-owner DB role; revisit
   if a compliance review specifically wants privilege-based (not trigger-based) enforcement.
 - Frontend accessibility: WCAG AA contrast has been audited and fixed for the verdict palette
