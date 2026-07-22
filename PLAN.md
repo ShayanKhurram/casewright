@@ -178,14 +178,38 @@ clean. Unlike the harness/tooling code (which is fully self-tested), the backup/
 rehearsal and MinIO versioning were run for real against the live containers, not just written
 — a genuine PASS on the row-count comparison across all 21 tables. The exit criterion itself
 ("first design-partner firm live on real closed-case evals") is explicitly not claimed — it
-needs a real firm's real data and a real `ANTHROPIC_API_KEY`, neither available here. What's
-delivered is the tooling that firm would use.
+needs a real firm's real data, which doesn't exist here. What's delivered is the tooling that
+firm would use.
 
-All four phases of the original implementation plan now have code-level completeness. Two
-verification gaps remain open across the whole project, both requiring resources this dev
-environment doesn't have: (1) a live Docker Compose smoke test for Phases 2–3 (blocked on the
-Docker Desktop build-pipeline issue — see PROJECT_LOG.md), and (2) a real LLM run for either
-graph against a live `ANTHROPIC_API_KEY` (both graphs are only verified against mocked LLM
-calls). Close both before any pilot-readiness claim.
+## Post-Phase-4 — LLM provider swap and live verification (2026-07-22)
+
+Plan §3 named Anthropic; no `ANTHROPIC_API_KEY` was ever available in this environment. Working
+Ollama Cloud credentials were, so `app/agents/llm.py` was rewritten against Ollama Cloud's
+OpenAI-compatible API (same public interface — nothing else changed). Models confirmed by hand
+before wiring in: `glm-5.2` (reasoning), `nemotron-3-nano:30b` (fast — more schema-compliant
+than `gpt-oss:20b` in a side-by-side test), `gemma4:31b` (vision/OCR fallback).
+
+- [x] Ran the full RFE workflow live against a real model — upload → parse → plan → draft →
+      verify → gate (`waiting_review`) → approve (as a partner-role user, correctly rejected for
+      an admin-role one first) → finalize (`status=completed`, case `status=filed`) — against a
+      real synthetic EB-1A RFE fixture. Reasoning quality was genuinely strong: correct
+      criterion mapping, real Kazarian two-step structure, correct concession-scope judgment,
+      and the verification layer caught and correctly held a real citation mismatch at
+      `needs_attention` rather than shipping it silently — the "nothing uncited ships" principle
+      observed working, not assumed. · reviewed 2026-07-22 @ e274b27
+- [x] Fixed two real bugs the live run surfaced (impossible to have found without actually
+      running it): `call_structured` didn't retry when the model skipped the tool call entirely
+      (only on validation failure) — happened repeatedly on `DraftedSection`'s nested schema;
+      added that retry path and raised `MAX_ATTEMPTS` 2→3. And Windows' default
+      `ProactorEventLoop` (which psycopg's async mode can't run under) blocked local non-Docker
+      testing — not a production issue, but blocked verification on this machine.
+- [x] Fixed a test-isolation gap the swap exposed: `test_verification.py` started making real
+      network calls once a working key existed in `.env`, because it relied on the *absence* of
+      a key rather than explicitly mocking the LLM. Force-mocked via an autouse fixture instead.
+
+**This closes the project's other major open gap** (alongside the still-open Docker Compose
+build-pipeline issue — see `PROJECT_LOG.md`). Both graphs have now been verified against a real
+model, not just mocked ones, for at least one real workflow (RFE). The petition graph's fan-out
+has not yet had the same live-model treatment — recommended before calling it pilot-ready.
 
 See `casewright-implementation-plan.md` §14 for full phase contents.

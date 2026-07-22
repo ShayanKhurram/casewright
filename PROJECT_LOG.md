@@ -214,6 +214,56 @@ Tests: `cd backend && pytest` (needs a reachable Postgres — `docker compose up
   (both are only verified against mocked Anthropic calls — there's no `ANTHROPIC_API_KEY` in
   this environment). Both are prerequisites for an actual pilot-readiness claim, not optional
   polish.
+- **Swapped the LLM provider to Ollama Cloud and closed the second gap live**, same day, after
+  the user said to set up Ollama Cloud instead of chasing an Anthropic key. Working credentials
+  were already present in this environment (the same account `pi` itself authenticates with —
+  `~/.pi/agent/*.json` and `$OLLAMA_API_KEY`), so this was a real, immediately actionable option
+  rather than a hypothetical one.
+  - Verified the integration surface by hand before writing any app code: confirmed Ollama
+    Cloud's OpenAI-compatible endpoint (`https://ollama.com/v1`) supports forced tool-calling
+    (tested against `glm-5.2`), then ran a small bake-off between `gpt-oss:20b` and
+    `nemotron-3-nano:30b` for the fast tier — `gpt-oss:20b` hallucinated an array of objects for
+    a schema that asked for an array of strings, `nemotron-3-nano:30b` didn't, so nemotron won
+    the fast-tier slot. Also confirmed `gemma4:31b` accepts image input (for the OCR fallback
+    path) where `qwen3.5:397b` 500'd.
+  - Rewrote `app/agents/llm.py` against the `openai` SDK, keeping the exact same public
+    interface (`call_structured`, `extract_page_text_via_vision`, `LLMNotConfigured`) so no
+    other module needed to change — this is exactly the payoff of plan §12's "nodes never call
+    the SDK directly" rule.
+  - **Then actually ran the RFE graph against the real model**, live, through a locally-run
+    backend process (not Docker — the build pipeline was still wedged, but the already-running
+    `db`/`minio` containers didn't need a rebuild, so the backend ran directly via the venv
+    against them, sidestepping the blocker entirely for functional verification purposes).
+    Uploaded a real synthetic RFE notice (two objections: awards, judging) plus a supporting
+    award document, started the run, and watched it work through parse → plan → draft → verify
+    → pause at the gate → (as a correctly-rejected admin user, then a partner user) approve →
+    finalize. Case status ended at `filed`, run status at `completed`.
+  - **The output quality was the real finding.** This wasn't just "the plumbing works" — the
+    rebuttal plans and drafted sections showed genuine legal reasoning: correct criterion
+    mapping, the Kazarian two-step structure applied correctly (not just cited), a coherent
+    concession strategy ("concede the certificate alone is insufficient, don't concede the award
+    is non-qualifying"), and the drafted text correctly cited the seeded knowledge corpus's
+    authorities and even its argument *patterns* (`pattern.borderline-evidence-distinguishing`,
+    `pattern.final-merits-synthesis`) by name. And the verification layer did its actual job on
+    live output: one section's `[EX-1]`/`[EX-2]` markers didn't resolve to real citations, and it
+    was correctly held at `needs_attention` instead of shipping — the plan's "nothing uncited
+    ships" principle observed working on genuine model output, not just tested against
+    hand-written fixtures.
+  - **Two real bugs surfaced by the live run, neither reachable by the mocked-LLM test suite**:
+    (1) `call_structured` had no retry path for "the model didn't call the tool at all" — only
+    for "it called the tool with invalid arguments" — and glm-5.2 hit exactly that gap
+    repeatedly on `DraftedSection`'s nested citations schema. Added the missing retry branch and
+    raised `MAX_ATTEMPTS` from 2 to 3. (2) Windows defaults to `ProactorEventLoop`, which
+    psycopg's async mode (the LangGraph checkpointer) can't run under — `conftest.py` already
+    had this fixed for pytest, but running a live server process needed the same fix applied to
+    the process entrypoint, which pytest's fixture-based approach doesn't cover.
+  - **A test-isolation gap the swap itself exposed**: `tests/test_verification.py` started
+    making real network calls the moment a working key existed in `.env`, because its hermeticity
+    depended on the *absence* of a key rather than an explicit mock — exactly the kind of
+    environment-coupling that "works on my machine, breaks in CI" bugs come from. Force-mocked
+    the LLM via an autouse fixture instead, matching what the file's own docstring already
+    claimed it was testing.
+  - 31/31 backend tests pass, ruff/mypy clean, after all of the above.
 
 ### 2026-07-21
 
@@ -248,14 +298,12 @@ pilot-readiness claim; everything after them is smaller and more local.
   execution or component tests, mocked LLM only) but not the "deploys and runs for real" check
   that Phase 0/1 got. Phase 3's T3.5 (the actual attorney-runs-a-case-through-the-UI walkthrough)
   is explicitly blocked on this. Do a full live-stack pass before any pilot-readiness claim.
-- **No real LLM run for either graph.** There is no `ANTHROPIC_API_KEY` in this dev environment,
-  so every graph test (RFE and petition) mocks `call_structured`. What's verified: sequencing,
-  fan-out/join, gate pause/resume, revision-loop bounds, DB writes, citation-integrity checking
-  — all the mechanical correctness. What's NOT verified: whether the actual prompts (§5's
-  conventions — adversarial-officer framing, closed-world citation, calibrated confidence)
-  produce good output against a real model. Run both graphs against a live key, and run the
-  golden-case harness against at least one real (not synthetic) firm case, before either
-  workflow is called pilot-ready.
+- **RESOLVED 2026-07-22 (partially): the RFE graph has now run live against a real model**
+  (Ollama Cloud, glm-5.2/nemotron-3-nano — see that day's timeline entry) — full workflow,
+  strong reasoning quality, verification layer caught a real citation defect. The petition
+  graph's `Send` fan-out has NOT had the same live-model treatment yet — do that before calling
+  the petition workflow pilot-ready. The golden-case harness has also still only run against its
+  shipped synthetic fixture, not a real firm case.
 - `audit_log` immutability relies on a trigger rather than a separate non-owner DB role; revisit
   if a compliance review specifically wants privilege-based (not trigger-based) enforcement.
 - Frontend accessibility: WCAG AA contrast has been audited and fixed for the verdict palette
@@ -263,12 +311,11 @@ pilot-readiness claim; everything after them is smaller and more local.
   confirmed that no component strips the default focus outline — that's a floor, not a
   deliberate pass) and real tablet-viewport testing (button groups use `flex-wrap`, but no
   breakpoint-specific layout work exists anywhere in the app yet).
-- LLM-dependent nodes (all reasoning/fast-tier nodes in both graphs, plus verification's
-  fact-check) are only tested with a mocked LLM — there is no `ANTHROPIC_API_KEY` in this dev
-  environment, so a real end-to-end run (real documents in, real drafted output out) has not
-  been observed for either graph, only the graceful-failure path (no key configured →
-  `status=failed`) and mocked graph mechanics. Worth a real run against a live key before
-  calling either workflow pilot-ready.
+- `call_structured`'s "model skipped the tool call" retry path (added after the live RFE run —
+  see timeline) has only been observed empirically against `glm-5.2` on `DraftedSection`'s
+  nested schema. Worth watching whether `MAX_ATTEMPTS=3` is enough headroom as more of the app
+  gets exercised against real models, or whether it needs to go higher / the schema needs
+  flattening for better compliance.
 - Document upload doesn't auto-classify `kind` — the uploader picks it from a dropdown, for both
   workflows. The plan frames per-document classification as an intake-node (LLM) responsibility;
   Phase 2's `intake_node` extracts facts but does not reclassify `kind` after upload. Revisit if
