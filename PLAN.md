@@ -677,7 +677,7 @@ file sets overlap across tasks): T7.1 → T7.4 → T7.2 → T7.3 → T7.5.
       full chronological feed including the per-criterion "Assessing eb1a.awards criterion…"
       text, row then deleted)
 
-- [ ] T7.2 (pi): Case Health Score. Backend: new `backend/app/services/health_score.py` with
+- [x] T7.2 (pi): Case Health Score. Backend: new `backend/app/services/health_score.py` with
       `async def compute_case_health(db: AsyncSession, case_id: UUID) -> CaseHealthOut` — queries
       `CriterionAssessment` (by `case_id`), `Document` (by `case_id`), and `DraftSection` (joined to
       `Draft` on `Draft.case_id == case_id`) directly (three simple `select()`s; do not build a
@@ -714,7 +714,15 @@ file sets overlap across tasks): T7.1 → T7.4 → T7.2 → T7.3 → T7.5.
       met/partial/absent criteria (asserting `criteria_score` math and `criteria_met` count),
       following the firm/user/login helper pattern in `backend/tests/test_active_runs.py`; the
       Dashboard's CaseCard and the Case Workspace Overview tab each render the dial and an
-      expandable breakdown; `npm run build`/`npm test`/`pytest` clean.
+      expandable breakdown; `npm run build`/`npm test`/`pytest` clean. · reviewed 2026-07-22 @
+      <sha-pending> (backend: full `pytest -q` in the container — 36/36, including the new
+      2-test `test_case_health.py`; frontend build/test clean; verified live — seeded 2 real
+      `criterion_assessments` [met+partial], dial showed 32 matching the formula
+      `round(0.4*80+0.3*0+0.3*0)` exactly, breakdown panel showed the right component scores,
+      and clicking the dial inside Dashboard's `<Link>`-wrapped card did not trigger navigation).
+      Minor accessibility nit not worth a re-guide: `HealthDial`'s `<button>` sits inside
+      Dashboard's `<Link>` (interactive-in-interactive nesting is invalid HTML, though it renders
+      and behaves correctly in every browser tested) — low priority, noted in Known Issues.
 
 - [ ] T7.3 (pi): RFE Risk Radar. Backend: new `backend/app/services/risk_radar.py` with a pure
       function computing, per `CriterionAssessment`: `risk_score` = `base + round((1-confidence)*20)`

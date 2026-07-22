@@ -4,6 +4,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from app.schemas.assessment import CaseHealthOut
+
 VisaCategory = Literal["O-1A", "EB-1A"]
 
 
@@ -27,3 +29,7 @@ class CaseOut(BaseModel):
     filing_deadline: date | None
     created_at: datetime
     updated_at: datetime
+
+
+class CaseWithHealthOut(CaseOut):
+    health: CaseHealthOut

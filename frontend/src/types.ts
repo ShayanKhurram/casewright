@@ -24,6 +24,15 @@ export const CASE_STATUSES = [
   "denied",
 ] as const;
 
+export interface CaseHealth {
+  score: number;
+  criteria_score: number;
+  evidence_score: number;
+  verification_score: number;
+  criteria_met: number;
+  criteria_total: number;
+}
+
 export interface Case {
   id: string;
   firm_id: string;
@@ -35,6 +44,7 @@ export interface Case {
   filing_deadline: string | null;
   created_at: string;
   updated_at: string;
+  health: CaseHealth;
 }
 
 export const DOCUMENT_KINDS = [

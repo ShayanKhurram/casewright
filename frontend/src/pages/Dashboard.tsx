@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 
 import DashboardSkeleton from "../components/DashboardSkeleton";
 import DeadlineBadge from "../components/DeadlineBadge";
+import HealthDial from "../components/HealthDial";
 import StatusPill from "../components/StatusPill";
 import Button from "../components/ui/Button";
 import Dialog from "../components/ui/Dialog";
@@ -80,6 +81,7 @@ function CaseCard({ case_: c, activeRun }: { case_: Case; activeRun?: ActiveRun 
         </div>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2">
+        <HealthDial health={c.health} />
         <StatusPill status={c.status} />
         {needsReview && (
           <span className="font-mono text-[10px] uppercase tracking-wide text-partial">Your review</span>

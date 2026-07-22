@@ -15,6 +15,15 @@ class CriterionAssessmentOut(BaseModel):
     evidence_refs: list
 
 
+class CaseHealthOut(BaseModel):
+    score: int
+    criteria_score: int
+    evidence_score: int
+    verification_score: int
+    criteria_met: int
+    criteria_total: int
+
+
 class StrategyMemoOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
