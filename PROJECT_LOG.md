@@ -96,6 +96,45 @@ Tests: `cd backend && pytest` (needs a reachable Postgres — `docker compose up
   hanging — the correct behavior for a credential-less dev environment, not a bug. 16/16 backend
   tests pass, ruff/mypy clean, frontend `npm run build` clean.
 
+- Built Phase 2 (Petition engine) the same day, this time genuinely splitting work with pi per
+  the user's instruction ("use pi-build... distribute the work with yourself and pi"), rather
+  than building everything directly as in Phases 0–1. Claude built the petition LangGraph
+  (`petition_graph.py`: intake → profile → `Send`-based fan-out over all 8 O-1A / 10 EB-1A
+  criteria → assess_criterion → strategy → gate → drafting → verification → gate → finalize,
+  two independently bounded revision loops) and its API endpoints — the fan-out/reduce-channel
+  mechanic and the state-shape-coupled endpoints were kept in-house rather than delegated,
+  consistent with `PLAN.md`'s stated reasoning (getting a `Send` join wrong is hard to catch
+  from outside). pi built `CriterionMatrix` and `StrategyMemo`, the two frontend components
+  that could be scoped as pure presentational components against a known prop shape,
+  independent of the backend work — genuine parallelism, not sequential work relabeled as
+  parallel. Reviewed pi's actual diff (not its self-report, which claimed everything was
+  correct): one real defect — the strategy-memo decision badge rendered green for *both*
+  "approved" and "revision requested," which misrepresents a revision request as a success
+  state. Fixed (amber for revision requested). Everything else in pi's diff matched the brief
+  on the first pass; no re-guide round was needed. Claude then wired both components into
+  `CaseWorkspace` as new Criteria/Strategy tabs once the live API existed.
+- **pi CLI session-syntax finding** (operational, not a bug in this codebase, but worth
+  recording so it isn't rediscovered the hard way next time): the pattern in this workspace's
+  `CLAUDE.md` — `--session-dir .pi-sessions --session build-<slug>` — fails on a first-time
+  session with `No session found matching '<slug>'`. `--session` only *resumes* an existing
+  session by id/partial-UUID; it doesn't create one from a bare slug. The fix is to pass a full
+  file path with extension for first creation — `--session .pi-sessions/build-<slug>.jsonl` —
+  which both creates the session on first use and resumes it (since the file now exists) on
+  every subsequent re-guide call with the identical flag.
+- **Docker Desktop instability, mid-session.** The daemon became unresponsive for an extended
+  stretch (`docker ps` and `docker compose` hanging indefinitely) after several rapid
+  build/up/down cycles. Diagnosis: `Get-Process docker,docker-compose` showed a growing pile of
+  zombie CLI client processes from commands that had been backgrounded after hitting tool
+  timeouts — these appear to have queued up and wedged the daemon's connection handling.
+  `Stop-Process` on the stray `docker`/`docker-compose` processes plus a full Docker Desktop
+  restart resolved it once; it recurred once more later in the session (same symptom, same
+  fix). **Net effect: Phase 2's live Docker Compose smoke test was not completed** — test-level
+  verification (pytest against real Postgres, ruff, mypy, frontend build) is solid, but the
+  "does the actual stack deploy and run this code" check that Phase 0/1 both got is a genuine
+  gap for Phase 2. Do that check before treating Phase 2 as pilot-ready. If Docker instability
+  recurs on this machine, check for a pileup of stray docker CLI processes first before
+  assuming the daemon itself is broken.
+
 ### 2026-07-21
 
 - Built Phase 0 (Foundation) directly — user explicitly asked to skip the pi-delegation loop
@@ -119,23 +158,34 @@ Tests: `cd backend && pytest` (needs a reachable Postgres — `docker compose up
 
 ## Known Issues / Open TODOs
 
-- Phases 2–4 (petition engine, product UI, pilot hardening) are not started — see `PLAN.md`.
+- Phases 3–4 (product UI, pilot hardening) are not started — see `PLAN.md`.
+- **Phase 2 has not had a live Docker Compose smoke test** (Docker Desktop instability — see
+  2026-07-22 timeline entry). Test-level verification is solid (real Postgres, real graph
+  execution, mocked LLM only), but "deploys and runs for real" is unconfirmed for this phase
+  specifically, unlike Phase 0/1. Do this before pilot-readiness claims for the petition engine.
 - `audit_log` immutability relies on a trigger rather than a separate non-owner DB role; revisit
   if a compliance review specifically wants privilege-based (not trigger-based) enforcement.
-- Frontend has no test coverage yet (RFE workspace shell only, built quickly to unblock Phase 1
-  verification); Phase 3 is where the real component suite and its tests land, along with the
-  full theme (verdict rails, criterion matrix, etc. — only a subset of §9's component inventory
-  exists so far).
-- LLM-dependent nodes (parse_rfe, plan_rebuttals, draft_rfe, and verification's fact-check) are
-  only tested with a mocked LLM — there is no `ANTHROPIC_API_KEY` in this dev environment, so a
-  real end-to-end run (real notice in, real drafted rebuttal out) has not been observed, only the
-  graceful-failure path (no key configured → `status=failed`) and the mocked graph mechanics.
-  Worth a real run against a live key before calling the RFE wedge pilot-ready.
-- Document upload doesn't auto-classify `kind` — the uploader picks it from a dropdown. The plan
-  frames per-document classification as an intake-node (LLM) responsibility for the petition
-  workflow; whether RFE-workflow uploads should also get auto-classification is a Phase 2
-  question, not decided yet.
+- Frontend has no test coverage yet (component suite built incrementally per phase, not with
+  its own tests); Phase 3 is where the real test suite lands, along with the full theme
+  (verdict rails now exist on CriterionMatrix/DraftsTab, but §9's full component inventory —
+  DeadlineRing as an actual SVG ring rather than a badge, etc. — isn't complete).
+- LLM-dependent nodes (all reasoning/fast-tier nodes in both graphs, plus verification's
+  fact-check) are only tested with a mocked LLM — there is no `ANTHROPIC_API_KEY` in this dev
+  environment, so a real end-to-end run (real documents in, real drafted output out) has not
+  been observed for either graph, only the graceful-failure path (no key configured →
+  `status=failed`) and mocked graph mechanics. Worth a real run against a live key before
+  calling either workflow pilot-ready.
+- Document upload doesn't auto-classify `kind` — the uploader picks it from a dropdown, for both
+  workflows. The plan frames per-document classification as an intake-node (LLM) responsibility;
+  Phase 2's `intake_node` extracts facts but does not reclassify `kind` after upload. Revisit if
+  auto-classification turns out to matter in practice.
 - `knowledge_chunks` embeddings use the hash fallback in this environment (no `VOYAGE_API_KEY`)
   — deterministic but not semantically meaningful, so retrieval quality has not been evaluated,
   only retrieval *plumbing* (the query runs, returns rows, respects tenant/kind/criterion
-  filters).
+  filters). This affects both graphs' retrieval-grounded nodes equally.
+- Petition drafting (`drafting_node`) versions the whole `petition_letter` draft on every
+  redraft (same pattern as RFE), but unlike RFE, a petition revision loop restarts from
+  `strategy` (not just `drafting`) when `strategy_gate` sends `revise` — meaning
+  `criteria_to_argue` can change between draft versions. Not a bug (each redraft correctly
+  reflects the latest strategy), but worth knowing: draft version N and N+1 aren't necessarily
+  arguing the same set of criteria.

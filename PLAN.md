@@ -45,15 +45,15 @@ runner/verification/LLM-router infrastructure — only the graph and its nodes a
       8/10 criteria into `assess_criterion`, both interrupt gates, both bounded revision loops
       — acceptance: mocked-LLM graph test verifies fan-out joins before `strategy` runs (all 18
       criteria present after a single fan-out on an EB-1A case), both gates pause/resume, and
-      the strategy-gate revision loop redirects back to `strategy` · reviewed 2026-07-22 @ PENDING_SHA
+      the strategy-gate revision loop redirects back to `strategy` · reviewed 2026-07-22 @ 6e306b9
 - [x] T2.2 (Claude): all six node bodies (intake, profile, assess_criterion, strategy, drafting,
       finalize) — acceptance: same mocked-LLM test exercises every node; `verify_section` reused
-      unchanged for verification · reviewed 2026-07-22 @ PENDING_SHA
+      unchanged for verification · reviewed 2026-07-22 @ 6e306b9
 - [x] T2.3 (Claude, reassigned from pi): `POST /cases/{id}/runs/petition`,
       `GET /cases/{id}/criteria`, `GET /cases/{id}/strategy` — built directly rather than hand
       off to pi once T2.1's state shape was finalized, since the endpoint bodies are a few lines
       each and the coordination overhead of a separate pi round wasn't worth it · reviewed
-      2026-07-22 @ PENDING_SHA
+      2026-07-22 @ 6e306b9
 - [x] T2.4 (pi): `CriterionMatrix` and `StrategyMemo` frontend components, built via pi-build
       against fixture-shaped props (independent of T2.1–T2.3, exactly as scoped). Reviewed the
       actual diff (not the self-report): one real defect found and fixed — the strategy-memo
@@ -62,13 +62,19 @@ runner/verification/LLM-router infrastructure — only the graph and its nodes a
       show amber for "revision requested". Everything else matched the brief cleanly on the
       first pass — no re-guide round needed. Claude then wired both components into
       `CaseWorkspace` (`CriteriaTab`, `StrategyTab`) once the live API existed · reviewed
-      2026-07-22 @ PENDING_SHA
+      2026-07-22 @ 6e306b9
 
-**Phase 2 verified end-to-end 2026-07-22**: 18/18 backend tests pass (2 new petition-graph
-tests covering fan-out-then-both-gates-approve and the strategy revision loop), ruff/mypy
-clean, frontend `npm run build` clean. Live Docker smoke test mirrors Phase 1's: started a
-petition run with no `ANTHROPIC_API_KEY` configured and confirmed graceful failure. See
-`PROJECT_LOG.md` for the pi CLI session-syntax issue this round surfaced.
+**Phase 2 verified 2026-07-22 — with one gap**: 18/18 backend tests pass (2 new petition-graph
+tests covering fan-out-then-both-gates-approve and the strategy revision loop, against real
+Postgres, not mocks), ruff/mypy clean, frontend `npm run build` clean. Unlike Phase 0/1, the
+live Docker Compose smoke test (rebuild the stack, start a petition run through the real HTTP
+API, confirm graceful failure without an API key) was **not completed** this round — Docker
+Desktop's build pipeline wedged partway through and did not recover within a reasonable number
+of retries. Test-level verification is strong (real Postgres, real graph execution, only the
+Anthropic calls mocked), and Phase 2 changed no Dockerfiles/compose config, so the deploy-path
+risk is low — but this is a real gap versus Phase 0/1's standard, not a technicality. Do a live
+Docker smoke test before treating Phase 2 as pilot-ready. See `PROJECT_LOG.md` for the Docker
+Desktop incident and the pi CLI session-syntax finding this round surfaced.
 
 ## Phase 3 — Product UI (not started)
 ## Phase 4 — Pilot hardening (not started)
