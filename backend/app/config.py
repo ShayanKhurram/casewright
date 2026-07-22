@@ -27,9 +27,17 @@ class Settings(BaseSettings):
     s3_bucket: str = "casewright-documents"
     s3_region: str = "us-east-1"
 
-    anthropic_api_key: str = ""
-    reasoning_model: str = "claude-sonnet-4-6"
-    fast_model: str = "claude-haiku-4-5"
+    # LLM provider: Ollama Cloud via its OpenAI-compatible API (plan §3 named Anthropic; no
+    # ANTHROPIC_API_KEY was available in this environment, Ollama Cloud credentials were —
+    # see PROJECT_LOG.md for the swap rationale). llm.py is the only module that knows this.
+    ollama_api_key: str = ""
+    ollama_base_url: str = "https://ollama.com/v1"
+    reasoning_model: str = "glm-5.2"
+    fast_model: str = "nemotron-3-nano:30b"
+    vision_model: str = "gemma4:31b"
+    """Separate from fast_model: OCR-fallback needs image input, and not every fast/cheap
+    tool-calling model on Ollama Cloud also accepts images (confirmed by hand — see
+    PROJECT_LOG.md for which models were actually tested)."""
     voyage_api_key: str = ""
 
     cors_origins: str = "http://localhost:5173,http://localhost:8080"

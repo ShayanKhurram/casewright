@@ -1,14 +1,29 @@
 """Citation integrity is deterministic and always runs — verified directly here without
-needing the graph or a configured LLM (fact consistency is simply skipped, per plan §7)."""
+needing the graph or a configured LLM (fact consistency is simply skipped, per plan §7).
 
+These tests explicitly force the fact-check path to raise LLMNotConfigured, rather than
+relying on the ambient absence of OLLAMA_API_KEY — a real key may well be present in .env
+for other purposes (e.g. manual end-to-end runs), and these tests are about the deterministic
+citation-integrity logic in isolation, not whichever LLM happens to be configured at run time."""
+
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.agents.llm import LLMNotConfigured
 from app.agents.verification import verify_section
 from app.models.case import Case, Document
 from app.models.draft import Citation, Draft, DraftSection
 from app.models.knowledge import KnowledgeChunk
 from app.models.tenant import Firm
 from app.services.embeddings import embed
+
+
+@pytest.fixture(autouse=True)
+def _no_llm(monkeypatch):
+    async def _raise(*args, **kwargs):
+        raise LLMNotConfigured("no LLM in this test")
+
+    monkeypatch.setattr("app.agents.verification.call_structured", _raise)
 
 
 async def _make_case(db_session: AsyncSession) -> tuple[Firm, Case]:
