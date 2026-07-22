@@ -353,6 +353,11 @@ system and ui-kit being right.
       `assess_criterion`). Independently re-verified everything myself (not trusting the
       self-report): `npm run build` clean, `npm test` 14/14 unaffected, hex grep clean, and
       `git status` confirms only the 3 new files + the one permitted `ui/index.ts` barrel edit.
+      **Post-ship bug found 2026-07-22 (user report: "blank page")**: `PipelineTracker` assumed
+      `progress` was always the full shape, but real `agent_runs` rows can have `progress = {}`
+      (8 of 10 runs in the DB at the time — anything predating T5.3's writer) — crashed with no
+      error boundary, blanking the whole page. Fixed via `lib/runProgress.ts`'s
+      `normalizeProgress`; see PROJECT_LOG.md for the full incident writeup.
 - [x] T5.5 (Claude — user directed "build the next tasks yourself, don't use pi"): Login
       (split panel, static hairline grid, humanized network-vs-credential error) + Dashboard
       (search/status/category filters, New Case `Dialog`, Needs-review/Active/Filed grouping,

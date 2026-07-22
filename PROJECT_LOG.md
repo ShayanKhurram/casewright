@@ -681,6 +681,54 @@ after the T5.2 pi-drift incident below appended past it.)*
 - **Phase 5 (UI Redesign) is now complete** — all of T5.1–T5.8 reviewed and passed. See
   `PLAN.md` for the full per-task acceptance detail.
 
+### 2026-07-22 (post-ship) — blank-page bug: PipelineTracker crash on real historical data
+
+- User reported `localhost:8080` was blank. Diagnosed by checking container/nginx health first
+  (fine — a real browser session's requests in the nginx access log even showed a normal-looking
+  sequence of API calls, which was the first clue this wasn't a deploy/serving problem but a
+  runtime crash on specific data), then querying the database directly for the user's actual
+  firm/cases rather than guessing: found the case they were viewing ("Dr. Maria Chen",
+  `46667f95-...`) has three `agent_runs` rows, all three with `progress = {}` — including one
+  sitting at `status=waiting_review`. A DB-wide count confirmed this wasn't an edge case: **8 of
+  the 10 `agent_runs` rows in the database have `progress = {}`** — every run that predates
+  T5.3's `_stream_with_progress` writer (i.e. nearly all of this session's Phase 1–4 test data),
+  since the T5.3 migration added the column with a default but never backfilled existing rows.
+- Root cause: `PipelineTracker`'s `deriveState()` called `progress.completed_nodes.includes(...)`
+  unconditionally — on a run with `progress = {}`, `completed_nodes` is `undefined`, throwing
+  `TypeError: Cannot read properties of undefined (reading 'includes')`. This app has no error
+  boundary anywhere, so React unmounts the entire tree on any uncaught render error — on the now
+  dark-themed `body`, an unmounted page *is* a blank dark page, which is exactly what got
+  reported. `OverviewTab` hits this via any case with a `waiting_review`/`running` run;
+  `Dashboard`'s `CaseCard` had the identical unguarded `activeRun.progress.completed_nodes.length`
+  access and would hit the same crash on the dashboard itself for any case with an active run
+  predating T5.3.
+- The underlying design mistake: `AgentRun.progress` was typed as `RunProgress` (the full,
+  always-populated shape) when the real backend contract is "whatever `_write_progress` has
+  written so far, which can be nothing." Fixed at the type level, not just patched at the call
+  sites: `progress` is now typed `Partial<RunProgress>` on `AgentRun`, and a new
+  `lib/runProgress.ts`'s `normalizeProgress()` fills in safe defaults
+  (`current_node: null, completed_nodes: [], node_timestamps: {}, fan_out: {}`), called in
+  `PipelineTracker` (normalizes its own prop before any use) and `Dashboard`'s `CaseCard`.
+  Choosing `Partial<RunProgress>` over just leaving the type as-is and hoping call sites
+  remember to guard was deliberate — it makes the compiler surface future violations instead of
+  relying on every future consumer independently remembering this gotcha.
+- Added a regression test (`PipelineTracker.test.tsx`) rendering with `progress={{}}` — the
+  literal shape found in the database — asserting it renders (all nodes fall back to "pending")
+  instead of throwing. Verified the fix against the *actual* problematic data, not just a
+  synthetic case: re-queried the DB post-fix to confirm the "Dr. Maria Chen" case's exact three
+  runs still exist with `progress = {}` (nothing about the data changed, only the frontend's
+  handling of it), then rebuilt the frontend image and confirmed via the deployed bundle.
+- **Lesson for future JSONB-progress-style columns**: when a migration adds a nullable-by-
+  default or empty-default JSONB/JSON column that a *background process* populates over time
+  (not synchronously at row-creation), every frontend consumer must treat it as partial from
+  day one — the "full shape" is an eventual, not a guaranteed, state. This should have been
+  caught during T5.4's build (the type was already wrong then) or T5.5/T5.6's review (both
+  consumed it); it wasn't caught because every live-verification test run this session created
+  its *own* fresh run and always personally watched it progress to a fully-populated state,
+  never once exercising the reload-an-existing/older-run path a real user's second visit to the
+  app takes immediately. Worth remembering when live-verifying future features: test against
+  old/idle state, not just the golden path you just created.
+
 ## Known Issues / Open TODOs
 
 All four plan phases now have code-level completeness (see `PLAN.md`), and both major

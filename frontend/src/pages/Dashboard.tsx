@@ -14,6 +14,7 @@ import Label from "../components/ui/Label";
 import Select from "../components/ui/Select";
 import { SkeletonGate } from "../components/ui/Skeleton";
 import { apiFetch } from "../lib/api";
+import { normalizeProgress } from "../lib/runProgress";
 import { humanizeStatus } from "../lib/statusTone";
 import { ActiveRun, Case, CASE_STATUSES } from "../types";
 import { PETITION_TOPOLOGY, RFE_TOPOLOGY } from "../components/pipeline/graphTopology";
@@ -37,9 +38,11 @@ const CATEGORIES = ["All", "O-1A", "EB-1A"] as const;
 function CaseCard({ case_: c, activeRun }: { case_: Case; activeRun?: ActiveRun }) {
   const needsReview = groupOf(c.status) === "review";
   const topology = activeRun ? (activeRun.graph === "petition" ? PETITION_TOPOLOGY : RFE_TOPOLOGY) : null;
+  // normalizeProgress: activeRun.progress can legitimately be {} for runs that predate T5.3
+  // or crashed before ever streaming a node event — see lib/runProgress.ts.
   const progressPct =
     activeRun && topology && topology.length > 0
-      ? Math.round((activeRun.progress.completed_nodes.length / topology.length) * 100)
+      ? Math.round((normalizeProgress(activeRun.progress).completed_nodes.length / topology.length) * 100)
       : null;
 
   return (

@@ -81,7 +81,12 @@ export interface AgentRun {
     sections?: { id: string; heading: string; status: string; confidence: number }[];
   };
   error: string | null;
-  progress: RunProgress;
+  // Partial<RunProgress>, NOT RunProgress: the DB column defaults to `{}` and every run that
+  // predates T5.3 (or that failed before _stream_with_progress ever wrote to it) genuinely has
+  // an empty/partial object here — this type is deliberately honest about that so consumers are
+  // forced to handle it (via lib/runProgress.ts's normalizeProgress), rather than assuming a
+  // full shape and crashing on real production data. See that incident in PROJECT_LOG.md.
+  progress: Partial<RunProgress>;
   created_at: string;
   updated_at: string;
 }

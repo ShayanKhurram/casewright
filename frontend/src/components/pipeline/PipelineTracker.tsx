@@ -1,6 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { Check, X } from "lucide-react";
 
+import { normalizeProgress } from "../../lib/runProgress";
 import type { RunProgress } from "../../types";
 import {
   PETITION_TOPOLOGY,
@@ -11,7 +12,9 @@ import {
 export interface PipelineTrackerProps {
   graph: "petition" | "rfe";
   status: "running" | "waiting_review" | "completed" | "failed";
-  progress: RunProgress;
+  // Partial, not RunProgress: real runs can have progress = {} (predates T5.3, or crashed
+  // before ever streaming a node event) — normalized to a safe full shape below.
+  progress: Partial<RunProgress>;
 }
 
 /** Per-node visual state, derived in the exact precedence the plan specifies. */
@@ -93,7 +96,8 @@ function DoneMarker() {
  * live elapsed-time on the active node, and a fan-out counter + fraction ring on the active
  * fan-out node. A single shared 1s interval drives the live elapsed label for the whole
  * tracker (cleared on unmount). */
-export default function PipelineTracker({ graph, status, progress }: PipelineTrackerProps) {
+export default function PipelineTracker({ graph, status, progress: rawProgress }: PipelineTrackerProps) {
+  const progress = normalizeProgress(rawProgress);
   const topology = graph === "petition" ? PETITION_TOPOLOGY : RFE_TOPOLOGY;
 
   // Single shared 1s tick so the active node's elapsed label updates live without one timer
