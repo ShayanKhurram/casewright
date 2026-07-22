@@ -617,7 +617,7 @@ extracted_facts, strategy_memos) — no new agent/LangGraph nodes, per the plan 
 cross-cutting principle #5. Built in this order (each pi round sequential, not parallel, since
 file sets overlap across tasks): T7.1 → T7.4 → T7.2 → T7.3 → T7.5.
 
-- [ ] T7.1 (pi): Command palette (⌘K / Ctrl+K) — new `frontend/src/components/CommandPalette.tsx`
+- [x] T7.1 (pi): Command palette (⌘K / Ctrl+K) — new `frontend/src/components/CommandPalette.tsx`
       using the `cmdk` library (add as a new frontend dependency; already vendored as a shadcn
       example in `inspired_ui/src/app/components/ui/command.tsx` for styling reference only, not
       to be imported from). Mounted once in `Shell.tsx` so it's available on every authenticated
@@ -637,7 +637,10 @@ file sets overlap across tasks): T7.1 → T7.4 → T7.2 → T7.3 → T7.5.
       Case Workspace opens a centered glass dialog; typing filters cases by name; selecting a case
       navigates and closes the palette; on a case-workspace route, a "Tabs" group is present and
       selecting an entry updates the URL and switches tabs; visiting `/cases/{id}?tab=Strategy`
-      directly opens on the Strategy tab; Esc closes the palette.
+      directly opens on the Strategy tab; Esc closes the palette. · reviewed 2026-07-22 @ 5ada980
+      (verified live: Ctrl+K opened the palette from both Dashboard and a Case Workspace,
+      filtered/selected a real case, and the "Tabs" group's Strategy item navigated to
+      `?tab=Strategy` and switched tabs)
 
 - [ ] T7.4 (pi): Live agent theater — narration feed. Backend: extend the `progress` dict built in
       `backend/app/agents/runner.py::_stream_with_progress` with a new `narration_log` list (append,

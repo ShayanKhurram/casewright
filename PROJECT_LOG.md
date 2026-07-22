@@ -812,6 +812,33 @@ after the T5.2 pi-drift incident below appended past it.)*
   throwaway `agent_runs` row to force the tracker to overflow again, zoomed in on the scrollbar
   specifically to confirm it's now a thin hairline bar, deleted the row.
 
+### 2026-07-22 (Phase 7) — Tier-1 new features kickoff, T7.1 command palette (pi-built, Claude-reviewed)
+
+User picked the Tier-1 slate from `casewright-new-features-plan.md` (B1 Live agent theater, A1
+RFE Risk Radar, B2 Case Health Score, A4 Grounded case Q&A, B3 Command palette). Before starting,
+committed the previously-uncommitted Phase 6 glass reskin (T6.1-T6.3) as a clean baseline per
+user confirmation, so this phase's diffs review cleanly against a known-good tree. Scoped all
+five features into `PLAN.md`'s new Phase 7 as additive surfaces over already-persisted state —
+no new LangGraph nodes needed, per the plan doc's own cross-cutting principle. Build order:
+T7.1 → T7.4 → T7.2 → T7.3 → T7.5 (sequential, not parallel — file sets overlap too much across
+tasks for safe parallel pi sessions).
+
+- **T7.1 (pi, one round, no re-guide needed): command palette.** Brief specified: `cmdk`
+  dependency, a new `CommandPalette.tsx` mounted once in `Shell.tsx`, a global Ctrl+K/Cmd+K
+  listener, Cases/Navigation/Tabs groups, and moving `CaseWorkspace.tsx`'s tab state into a `?tab=`
+  URL search param (via `useSearchParams`) so the palette's Tabs group and direct links both work.
+  pi delivered exactly the 4 files scoped, nothing extra — `git diff` matched the brief closely
+  enough that no re-guide round was needed, a first for this project. One nice bit of pi judgment
+  not explicitly specified: styling cmdk's `[cmdk-group-heading]` attribute (which Tailwind's
+  arbitrary-variant selectors can't reach) via a scoped inline `<style>` block instead of touching
+  `index.css`, keeping the change contained to one new file.
+  Verified live, not just build/test: created a throwaway firm+admin
+  (`t71-review@firm.test`/"T71 Review Firm") via `scripts.create_firm`, logged in through Chrome
+  against a rebuilt Docker image, created a real case, and confirmed Ctrl+K opens the palette from
+  both Dashboard and a Case Workspace, filters/selects a real case by name, and — on the workspace
+  route — a "Tabs" group appears whose "Strategy" item navigates to `?tab=Strategy` and switches
+  the active tab. Stamped `[x]` in `PLAN.md` at commit `5ada980`.
+
 ## Known Issues / Open TODOs
 
 All four plan phases now have code-level completeness (see `PLAN.md`), and both major
