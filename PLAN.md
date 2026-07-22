@@ -89,16 +89,16 @@ first real frontend test suite (currently zero coverage — see Known Issues).
 - [x] T3.1 (pi): `Shell` (nav + JWT-decoded firm context, sign-out) wrapping every authenticated
       route; `OverviewTab` (beneficiary profile, `AgentRunTimeline`) — acceptance: `npm run build`
       clean, Shell wraps both authenticated routes, Overview is the default landing tab
-      · reviewed 2026-07-22 @ PENDING_SHA
+      · reviewed 2026-07-22 @ 0f00a47
 - [x] T3.2 (pi): `DeadlineRing` — real SVG progress ring (87-day RFE window approximation,
       documented), replacing `DeadlineBadge` in `RFETab`, static/no-animation (trivially respects
       `prefers-reduced-motion`) — acceptance: correct color/label for future/near/overdue/null
-      deadlines, traced against three fixtures · reviewed 2026-07-22 @ PENDING_SHA. Reviewed the
+      deadlines, traced against three fixtures · reviewed 2026-07-22 @ 0f00a47. Reviewed the
       actual diff: one dead-code cleanup (an unused `color` variable applied to a className that
       nothing inherited from); otherwise clean on the first pass.
 - [x] T3.3 (Claude): vitest + React Testing Library, wired into CI; tests for GateBanner
       (approve/revise API calls), CriterionMatrix (verdict-rail colors, sort order), StrategyMemo
-      (gate visibility) — acceptance: `npm test` passes, runs in CI · reviewed 2026-07-22 @ PENDING_SHA.
+      (gate visibility) — acceptance: `npm test` passes, runs in CI · reviewed 2026-07-22 @ 4346b67.
       Writing the GateBanner test surfaced a real bug (not hypothetical): `decide()` had no error
       handling, so a failed gate request became a silent unhandled promise rejection with no
       user-facing feedback. Fixed with the same catch+setError pattern used everywhere else.
@@ -107,7 +107,7 @@ first real frontend test suite (currently zero coverage — see Known Issues).
       threshold but failing the 4.5:1 text threshold (added `verdict-partial-text` at 5.2:1 for
       every body-text usage, kept the original for borders/pills); `text-slate` on `Shell`'s dark
       `bg-ink` header is ~2.9:1 (fails AA even for large text), switched to `text-hairline`
-      (~12.7:1) · reviewed 2026-07-22 @ PENDING_SHA. Keyboard focus: confirmed no component strips
+      (~12.7:1) · reviewed 2026-07-22 @ 0f00a47. Keyboard focus: confirmed no component strips
       the browser default focus outline (`Login.tsx` already has a custom oxblood focus ring;
       extending that treatment to every interactive element is a nice-to-have, not a compliance
       gap, since defaults remain visible everywhere else). Tablet responsiveness: button groups
