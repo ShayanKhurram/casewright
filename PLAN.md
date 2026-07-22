@@ -802,7 +802,7 @@ file sets overlap across tasks): T7.1 → T7.4 → T7.2 → T7.3 → T7.5.
       via the existing `get_case_scoped` dependency); the Case Workspace has a working "Ask" tab:
       submitting a question shows a loading state then an answer with citation markers, and a
       no-match question renders in the distinct muted style, not as an error; `npm run
-      build`/`npm test`/`pytest` clean. · reviewed 2026-07-22 @ <sha-pending> (backend: full
+      build`/`npm test`/`pytest` clean. · reviewed 2026-07-22 @ cbe1e8d (backend: full
       `pytest -q` in the container — 42/42, including the new 4-test `test_case_qa.py`
       [no-facts short-circuit never calls the model, grounded citations resolve to real
       fact/document rows, out-of-range indices silently dropped, cross-tenant 404]; frontend

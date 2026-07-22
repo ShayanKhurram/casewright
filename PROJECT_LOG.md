@@ -903,6 +903,38 @@ tasks for safe parallel pi sessions).
   to the reddest/highest-risk bar it visually reads backwards ("low" next to the scariest bar).
   Logged as a follow-up rather than re-guided. Stamped `[x]` in `PLAN.md` at commit `6fc6960`.
 
+- **T7.5 (pi, one round, no re-guide needed): grounded Q&A over the case file — closes out
+  Phase 7's Tier-1 slate.** Brief specified a new `POST /cases/{id}/qa` that only answers from a
+  case's `ExtractedFact` rows (numbered-context prompt via the existing `call_structured` choke
+  point, `cited_fact_indices` resolved back to real fact/document rows, out-of-range indices
+  silently dropped rather than 500ing), a hard short-circuit before any model call when a case has
+  no facts yet, and a new stateless "Ask" tab (no chat-history table — intentional MVP scope, not
+  a gap). pi delivered exactly the file set scoped, plus a stronger test file than asked for: 4
+  tests instead of the 3 specified, adding an explicit out-of-range-indices case
+  (`cited_fact_indices=[0, 5, -1]`, asserting only index 0 resolves) on top of the no-facts/
+  grounded/tenancy cases the brief named.
+  Verified independently: full backend `pytest -q` in the container (42/42). This round's
+  live-verification was the strongest of Phase 7 — since a real `OLLAMA_API_KEY` happens to be
+  configured in this dev environment, the check ran the actual model end-to-end rather than a
+  synthetic DB row: seeded one real `Document`/`ExtractedFact` pair on the shared Ada Lovelace test
+  case, asked "What awards has she won?" through the live "Ask" tab, and got back a genuinely
+  model-generated, correctly grounded answer with a resolved `[EX-1 p.4]` citation chip; then asked
+  an unanswerable question ("What is her favorite color?") and got "Not found in this record." in
+  the distinct muted/italic style specified — the closed-world guardrail holding up against a real
+  model, not just a mocked one. Cleaned up the seeded rows after. Stamped `[x]` in `PLAN.md` at
+  commit `cbe1e8d`.
+
+**Phase 7 wrap-up**: all five Tier-1 features (T7.1, T7.4, T7.2, T7.3, T7.5) shipped in five
+sequential pi rounds, zero re-guide rounds needed across the whole slate — the most efficient
+`/pi-build` run of the project so far. Every round's `git diff` matched its brief's file scope
+exactly, a first for this consistency across an entire phase. Two cosmetic-only nits found and
+accepted rather than re-guided (an under-indented block in `PipelineTracker.tsx`, a missing EOF
+newline); one real-but-minor accessibility nit (`HealthDial`'s button-in-`<Link>` nesting) and one
+UX-clarity nit (`RiskRadar`'s `confidence_band` tag reads ambiguously next to a high-risk bar) were
+logged as follow-ups rather than blocking. All five features were checked in a real browser against
+rebuilt Docker images, not just build/test — including one full end-to-end pass through the actual
+configured LLM for the grounded-Q&A feature.
+
 ## Known Issues / Open TODOs
 
 All four plan phases now have code-level completeness (see `PLAN.md`), and both major
