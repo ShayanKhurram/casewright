@@ -119,6 +119,47 @@ first real frontend test suite (currently zero coverage — see Known Issues).
       build-pipeline issue** (see 2026-07-22 timeline entries) — needs a live stack, not just
       unit/component tests. Do this before any pilot-readiness claim for the frontend.
 
-## Phase 4 — Pilot hardening (not started)
+## Phase 4 — Pilot hardening
+
+Golden-case eval harness, monitoring, backups rehearsal, firm onboarding, precedent ingestion.
+Exit criterion (plan §14): first design-partner firm live on real closed-case evals — which by
+definition needs a real firm's real data and a real `ANTHROPIC_API_KEY`, neither of which exist
+in this dev environment. Scope here is therefore the *harness and tooling* a firm would use,
+built and self-tested (synthetic fixtures, scoring-logic unit tests), not an actual eval run.
+
+- [ ] T4.1 (Claude): golden-case eval harness (`scripts/eval_golden_cases.py`) — loads a
+      directory of golden-case fixtures (JSON: case facts, documents, the criteria/verdicts the
+      firm actually argued and won, and — if an RFE was issued — the objections actually raised),
+      replays `assess_criterion` and `strategy` against them, reports criterion-verdict
+      agreement, RFE-risk precision (predicted risks vs. objections actually raised), and
+      citation-verification pass rate. This is also the sales-pilot instrument per §13 ("run it
+      on ten of your decided cases"), so the report format matters. Acceptance: scoring/reporting
+      logic (pure functions, no LLM) unit-tested against synthetic fixtures; the harness's LLM-
+      dependent replay path is exercised structurally (same mocked-LLM pattern as the graph
+      tests) since there's no real API key here to run it against real cases.
+- [ ] T4.2 (pi): structured logging — `structlog` configuration (already a dependency, unused
+      until now) with request-id middleware and `thread_id` bound into every graph-node log line;
+      optional Sentry init behind a `SENTRY_DSN` env var (no-op, not an error, when unset).
+      Acceptance: log lines are JSON with request/thread correlation; app boots identically with
+      and without `SENTRY_DSN` set.
+- [ ] T4.3 (Claude): backup/restore rehearsal, actually run against the live db container (this
+      doesn't need the wedged Docker *build* pipeline — `docker exec` against the already-running
+      healthy `db` container works fine) — `scripts/backup_db.sh` (`pg_dump`), a restore
+      rehearsal that restores into a scratch database and verifies row counts match, MinIO
+      versioning enabled per-bucket. Acceptance: an actual backup → restore → verify round trip,
+      not just a script that's never been executed.
+- [ ] T4.4 (pi): precedent ingestion (`scripts/ingest_precedent.py`) — takes a firm_id and a
+      text/PDF file, chunks it (paragraph-based is enough), embeds via the existing
+      `app/services/embeddings.py`, inserts `KnowledgeChunk` rows with `kind="precedent"` and
+      that firm's `firm_id` (the retrieval side — tenant-scoped `firm_id IS NULL OR firm_id =
+      caller` — already exists from Phase 1, unchanged). Acceptance: ingesting a sample document
+      produces retrievable chunks scoped to that firm only (cross-firm retrieval test, same
+      tenancy discipline as everywhere else in this codebase).
+- [ ] T4.5 (Claude): metrics — a `scripts/report_metrics.py` computing what's derivable from the
+      existing schema without new instrumentation: gate wait time (interrupt→resume timestamp
+      delta on `agent_runs`), verification blocker rate (`needs_attention` fraction on
+      `draft_sections`). Run duration by node and tokens per case are **not** derivable today —
+      that needs new columns (per-node timing, token usage capture from the Anthropic response)
+      that don't exist; noted honestly as a gap rather than half-built.
 
 See `casewright-implementation-plan.md` §14 for full phase contents.
