@@ -17,6 +17,7 @@
     "@radix-ui/react-toast": "^1.2.20",
     "@radix-ui/react-tooltip": "^1.2.13",
     "@tanstack/react-query": "^5.62.0",
+    "cmdk": "^1.0.0",
     "framer-motion": "^12.42.2",
     "lucide-react": "^1.25.0",
     "react": "^18.3.1",

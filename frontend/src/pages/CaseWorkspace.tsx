@@ -1,6 +1,6 @@
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 
 import CriteriaTab from "../components/CriteriaTab";
 import DraftsTab from "../components/DraftsTab";
@@ -23,6 +23,7 @@ const TABS = ["Overview", "Evidence", "Criteria", "Strategy", "Drafts", "RFE"] a
  * would just be two competing approve/revise controls for one decision. */
 export default function CaseWorkspace() {
   const { caseId } = useParams<{ caseId: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const queryClient = useQueryClient();
 
   const { data: caseData } = useQuery({
@@ -57,6 +58,9 @@ export default function CaseWorkspace() {
 
   const gateRun = runs?.find((r) => r.status === "waiting_review" && r.current_gate !== "strategy_review");
 
+  const tabParam = searchParams.get("tab");
+  const activeTab = (TABS as readonly string[]).includes(tabParam ?? "") ? (tabParam as string) : "Overview";
+
   async function refreshAfterGate() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["runs", caseId] }),
@@ -82,7 +86,10 @@ export default function CaseWorkspace() {
 
         {gateRun && <GateBanner run={gateRun} onDecided={refreshAfterGate} />}
 
-        <TabsPrimitive.Root defaultValue="Overview">
+        <TabsPrimitive.Root
+          value={activeTab}
+          onValueChange={(v) => setSearchParams({ tab: v }, { replace: true })}
+        >
           {/* overflow-x-auto (T5.8 tablet check): 6 tabs with labels + count badges can get
               tight below ~1024px inside this max-w-5xl container — scrolls instead of wrapping
               or visually breaking if it doesn't fit. shrink-0 on each trigger keeps tab widths

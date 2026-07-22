@@ -1,3 +1,4 @@
+import CommandPalette from "./CommandPalette";
 import RouteProgressBar from "./shell/RouteProgressBar";
 import Sidebar from "./shell/Sidebar";
 import Topbar from "./shell/Topbar";
@@ -10,6 +11,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden bg-bg">
       <RouteProgressBar />
+      <CommandPalette />
       <Sidebar />
       <div className="flex flex-1 flex-col overflow-hidden">
         <Topbar />
