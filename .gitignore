@@ -11,6 +11,8 @@ dist/
 build/
 .env
 .env.local
+.env.*
+!.env.example
 *.log
 .pi-sessions/
 frontend/dist/
@@ -18,3 +20,5 @@ backend/.pi-sessions/
 *.tsbuildinfo
 .claude/
 backups/
+supabase/.temp/
+backend/supabase/.temp/

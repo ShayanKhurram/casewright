@@ -6,10 +6,13 @@ import asyncio
 import uuid
 
 import boto3
+import structlog
 from botocore.client import Config as BotoConfig
 from botocore.exceptions import ClientError
 
 from app.config import get_settings
+
+logger = structlog.get_logger(__name__)
 
 settings = get_settings()
 
@@ -57,8 +60,18 @@ def _ensure_bucket_sync() -> None:
 
     # Versioning on (plan §11): an accidental overwrite/delete of an exhibit is recoverable.
     # put_bucket_versioning is idempotent — safe to call on every boot, including the race
-    # above where multiple workers reach this line concurrently.
-    _client.put_bucket_versioning(Bucket=settings.s3_bucket, VersioningConfiguration={"Status": "Enabled"})
+    # above where multiple workers reach this line concurrently. Not every S3-compatible
+    # provider implements this operation — confirmed live against Supabase Storage, which
+    # returns a (malformed, empty-message) ClientError for it, unlike MinIO/real AWS S3.
+    # Best-effort: log and continue rather than fail boot over a recoverability nice-to-have.
+    try:
+        _client.put_bucket_versioning(Bucket=settings.s3_bucket, VersioningConfiguration={"Status": "Enabled"})
+    except ClientError:
+        logger.warning(
+            "storage.versioning_unsupported",
+            bucket=settings.s3_bucket,
+            detail="This S3-compatible provider doesn't support bucket versioning; continuing without it.",
+        )
 
 
 async def ensure_bucket() -> None:
