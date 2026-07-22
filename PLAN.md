@@ -255,3 +255,38 @@ worth monitoring as real usage accumulates, and worth considering `MAX_ATTEMPTS`
 prompt-shortening if it recurs often.
 
 See `casewright-implementation-plan.md` §14 for full phase contents.
+
+## Phase 5 — UI Redesign (source: `casewright-ui-redesign-plan.md`)
+
+Dark "night-mode legal instrument panel" re-skin: CSS-variable token system, Radix-based
+component kit, app shell (sidebar/topbar/user menu), a three-tier loading/progress system
+(skeletons → live PipelineTracker driven by real backend progress → micro-feedback), and a
+screen-by-screen re-skin. The source doc's own estimate is 2.5–3 weeks; built here phase-at-a-
+time per its own §11 breakdown, foundation first since every later phase depends on the token
+system and ui-kit being right.
+
+- [ ] T5.1 (Claude): dark token system (`src/theme/tokens.css` CSS variables →
+      `tailwind.config.js` mapping) + app shell (Sidebar collapsible 224px↔56px, Topbar with
+      breadcrumb/RunIndicator/user menu, 2px route-progress bar) — kept in-house since every
+      other component consumes these tokens and a mistake here propagates everywhere.
+      Acceptance: no ad-hoc hex outside `tokens.css`; shell renders on every authenticated
+      route; sidebar collapse persists per §4.
+- [ ] T5.2 (pi): ui-kit primitives (`src/components/ui/`: Button w/ loading state, Input,
+      Select, Textarea, Pill, Toast system, EmptyState) per §5's exact variant/state specs,
+      built against T5.1's tokens. Acceptance: `npm run build` clean, each primitive matches
+      its documented states (hover/focus/disabled/loading).
+- [ ] T5.3 (Claude): backend progress tracking — extend `agent_runs` with a `progress` JSONB
+      column (current_node, per-node timestamps, fan-out counts), have the runner/graph nodes
+      write to it, add it to `RunOut`. Kept in-house: touches the runner/graph plumbing that's
+      architecturally central, same reasoning as the petition graph's fan-out.
+- [ ] T5.4 (pi): loading system — skeleton primitives (`SkeletonLine`/`Block`/`Pill`/`Row`,
+      shimmer keyframe) + per-screen skeleton layouts + `PipelineTracker` (topology stepper
+      consuming T5.3's progress field) + progressive-reveal staggering for criterion
+      cards/RFE objections/draft sections.
+- [ ] T5.5 (pi): Dashboard + Login re-skin, empty states, humanized error taxonomy (§7).
+- [ ] T5.6 (pi): Case Workspace tabs — Overview, Evidence, Criteria (verdict rails +
+      confidence meters + scoreboard), Strategy (+ gate actions).
+- [ ] T5.7 (pi): Draft reviewer three-pane (section nav / body+citations / source panel) +
+      RFE workspace with DeadlineRing header + objection cards.
+- [ ] T5.8 (Claude): accessibility pass (WCAG AA per §9 — reuse the contrast-audit method
+      from Phase 3's T3.4), reduced-motion verification, tablet responsive check, polish sweep.
