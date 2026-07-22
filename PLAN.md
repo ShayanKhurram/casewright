@@ -76,7 +76,39 @@ risk is low — but this is a real gap versus Phase 0/1's standard, not a techni
 Docker smoke test before treating Phase 2 as pilot-ready. See `PROJECT_LOG.md` for the Docker
 Desktop incident and the pi CLI session-syntax finding this round surfaced.
 
-## Phase 3 — Product UI (not started)
+## Phase 3 — Product UI
+
+Full theme, dashboard, criterion matrix, draft reviewer, RFE workspace + deadline ring. Exit
+criterion (plan §14): an attorney can run a case end-to-end without touching an API client.
+Substantial chunks of this phase's component inventory were already pulled forward during
+Phases 1–2 (EvidenceTab, RFETab with a deadline badge, DraftsTab with citation chips,
+CriteriaTab/CriterionMatrix, StrategyTab/StrategyMemo) — what remains is the shell/navigation,
+the Overview tab and run timeline, upgrading the deadline badge to the spec'd SVG ring, and a
+first real frontend test suite (currently zero coverage — see Known Issues).
+
+- [ ] T3.1 (pi): `Shell` component (nav bar + firm context from the JWT, sign-out) wrapping
+      every authenticated route; `Overview` tab in `CaseWorkspace` (profile summary from
+      `case.profile`, status, and an `AgentRunTimeline` component listing `agent_runs` for the
+      case with graph/status/timestamps — reuses `StatusPill`). Bounded, no new backend needed
+      (all data already exposed by existing endpoints). Acceptance: `npm run build` clean, Shell
+      renders on every route, Overview tab shows real data against the live API.
+- [ ] T3.2 (pi): `DeadlineRing` — replace `DeadlineBadge`'s text-only countdown with the spec'd
+      SVG ring (§9: "SVG countdown against the RFE response deadline"), same color logic (green
+      → amber → red as the deadline approaches/passes) `prefers-reduced-motion` respected (no
+      animated countdown motion if the user has that preference set). Acceptance: renders
+      correctly for future/near/past deadlines and for `deadline=null`.
+- [ ] T3.3 (Claude): frontend test infrastructure (vitest + React Testing Library — new tooling,
+      worth setting up carefully once rather than pi guessing at config) + a first real test
+      suite for the highest-value components (GateBanner's approve/revise call, CriterionMatrix
+      verdict-rail color mapping, StrategyMemo's gate visibility logic). Acceptance: `npm test`
+      runs in CI.
+- [ ] T3.4 (Claude): accessibility/responsive quality floor per §9 — visible keyboard focus
+      states, WCAG AA contrast check on verdict colors (met/partial/gap against both paper and
+      hairline backgrounds), tablet responsiveness pass on CaseWorkspace's tab layout.
+- [ ] T3.5 (Claude): the actual exit-criterion walkthrough — attorney runs one full case
+      (upload documents → petition analysis → criteria review → strategy approve → draft review
+      → approve) entirely through the UI, no direct API calls, once Docker is confirmed stable.
+
 ## Phase 4 — Pilot hardening (not started)
 
 See `casewright-implementation-plan.md` §14 for full phase contents.
