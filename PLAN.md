@@ -277,10 +277,29 @@ system and ui-kit being right.
       server-side (fixes the plan's named "raw firm UUID in header" bug). Verified via
       `npm run build`/`npm test`, full docker rebuild, and live login through nginx
       (fresh test user, `/auth/me` and `/runs/active` both exercised end-to-end).
-- [ ] T5.2 (pi): ui-kit primitives (`src/components/ui/`: Button w/ loading state, Input,
+- [x] T5.2 (pi): ui-kit primitives (`src/components/ui/`: Button w/ loading state, Input,
       Select, Textarea, Pill, Toast system, EmptyState) per §5's exact variant/state specs,
       built against T5.1's tokens. Acceptance: `npm run build` clean, each primitive matches
       its documented states (hover/focus/disabled/loading).
+      · reviewed 2026-07-22 @ fb3b38b (Claude, independently re-verified after a process
+      incident — see PROJECT_LOG). 10 primitives + `index.ts` barrel, token-only (no hex —
+      confirmed by grep), `forwardRef` on Input/Textarea, Radix Select/Toast, tone-based Pill
+      with `/10` alpha fills + pulsing run dot (reuses `RunIndicator`'s exact two-span
+      pattern), Toast+ToastProvider+`useToast` (5s auto-dismiss, variant left-accent, retry
+      action). `App.tsx`/`main.tsx` correctly left unwired per brief. Independently confirmed:
+      `npm run build` clean (1922 modules), `npm test` 14/14, and — the part actually worth
+      checking given the alpha-modifier fix below — the built CSS output itself contains real
+      rules (`bg-run\/10{background-color:rgb(var(--run-rgb)...)}`,
+      `ring-accent\/40:focus{--tw-ring-color:rgb(var(--accent-rgb) / .4)}`), not just
+      passing TypeScript.
+      **Required a T5.1 amendment first**: pi's first pass correctly BLOCKED — it caught that
+      Tailwind silently drops `/opacity` modifiers on colors defined as bare `var(--x)`
+      strings (a real bug in my T5.1 brief, which had wrongly asserted `bg-accent/40` was
+      "used elsewhere"). Fixed at the token layer (by me, since `tokens.css`/`tailwind.config.js`
+      are T5.1/Claude-owned files): added `--<color>-rgb` channel triples and remapped
+      `tailwind.config.js` colors to `rgb(var(--x-rgb) / <alpha-value>)`.
+      Minor accepted deviation: brief said `bg-met/12`, code uses `bg-met/10` (matches the
+      brief's only concrete example; ~2% alpha, visually imperceptible, not worth a re-guide).
 - [ ] T5.3 (Claude): backend progress tracking — extend `agent_runs` with a `progress` JSONB
       column (current_node, per-node timestamps, fan-out counts), have the runner/graph nodes
       write to it, add it to `RunOut`. Kept in-house: touches the runner/graph plumbing that's

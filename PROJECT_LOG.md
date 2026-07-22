@@ -439,3 +439,86 @@ live against a real model, not just mocked ones. What's left below is smaller an
   synthetic fixture with a mocked LLM. It has not been run against real firm data (none exists
   in this environment) or a real model — both are prerequisites for it actually functioning as
   the "sales pilot instrument" the plan describes.
+
+### 2026-07-22 (later) — T5.2 ui-kit primitives (pi-built, Claude-reviewed)
+
+- **Brief → pi**: `.pi-briefs/t5.2-ui-kit.md` asked pi for 10 primitives under
+  `frontend/src/components/ui/` + an `index.ts` barrel, token-only styling (no hex), against
+  the T5.1 dark token system: Button (4 variants / 2 sizes / loading spinner left of children),
+  Input + Textarea (forwardRef, `ring-accent/40` focus ring), Label, FieldError (fade-in),
+  Radix Select, tone-based Pill (`run|partial|met|gap|dim`, `bg-<tone>/10` fills, pulsing run
+  dot reused from `RunIndicator`), Radix Toast + ToastProvider + `useToast` (5s auto-dismiss,
+  3px variant left-accent, retry action), EmptyState.
+- **pi's first pass BLOCKED (correctly)**: pi reported that Tailwind v3.4 silently drops
+  `/opacity` modifiers on colors defined as bare `var(--x)` strings — `bg-accent/40`,
+  `bg-run/10` emitted no CSS rule at all. pi was right; the brief's claim that `bg-accent/40`
+  was "used elsewhere" was false (my error). pi built the files but used a layered
+  `opacity-10` overlay span fallback ("option C") for Pill and bare `ring-accent` (no `/40`)
+  for the focus rings to keep something visible.
+- **Fix was mine, not pi's** (tokens.css / tailwind.config.js are Claude-owned): added
+  RGB-channel-triple vars (`--accent-rgb: 193 66 79`, `--run-rgb: 91 141 239`, …) alongside the
+  existing hex vars in `tokens.css`, and remapped `bg`/`surface`/`surface-2`/`text`/`text-dim`/
+  `text-faint`/`accent`/`accent-hover`/`met`/`partial`/`gap`/`run` in `tailwind.config.js` to
+  `rgb(var(--x-rgb) / <alpha-value>)`. `border`/`border-strong` left unchanged (already
+  fixed-alpha rgba). Verified with a probe file that `.bg-accent\/40`, `.bg-met\/12`, etc.
+  now emit real CSS, and `npm run build` still passes clean.
+- **Re-guide → pi** (`.pi-briefs/t5.2-ui-kit-continue.md`): told pi it was unblocked, to
+  proceed with the original brief exactly as written using the literal `/40`, `/10`, `/12`
+  opacity classes, to **ignore** the overlay-span fallback (option C) and use plain Tailwind
+  opacity-modifier syntax, and to delete the `__opacitytest.tsx` experiment file it had created
+  during investigation.
+- **pi's second pass**: rewrote Button/Input/Textarea/Select (added `/40` to every focus
+  ring) and Pill (replaced the overlay span with complete literal `bg-<tone>/10` classes —
+  written as full literals, not interpolated, so the JIT scanner detects each one). pi ran its
+  self-check (build clean, hex grep empty, 14/14 tests pass) and was about to report RESULT.
+- **Review (Claude, against the actual diff — not the self-report)**:
+  - `npm run build` clean (1922 modules, no TS errors).
+  - Hex grep on `ui/`: none. `git status`: only `tokens.css`/`tailwind.config.js` (mine) +
+    new `ui/` dir — pi touched nothing out of scope (no `App.tsx`/`main.tsx`/existing
+    component edits). 11 files in `ui/` (10 primitives + barrel). No stray `__opacitytest`
+    file left on disk.
+  - Proved the opacity modifiers actually render in the built stylesheet:
+    `.bg-run\\/10{background-color:rgb(var(--run-rgb) / .1)}`, `ring-accent/40` →
+    `rgb(var(--accent-rgb) / .4)`, and `bg-met/10`, `bg-gap/10`, `bg-partial/10`,
+    `bg-text-dim/10` all PRESENT. `border-l-met/gap/run` (Toast variant accent) emit via
+    `--tw-border-opacity`.
+  - 14/14 existing vitest tests still pass.
+  - **One non-blocking nit**: the continue-brief specified `bg-met/12` but pi used
+    `bg-met/10`. Defensible — the *original* brief only ever gave `bg-run/10` as its concrete
+    example (with "~12% alpha" in prose), so `/10` matches the source-of-truth; the `/12` was
+    a clarification I over-specified in the continue brief. ~2% alpha on one tone's tint,
+    visually imperceptible. Not worth a re-guide round.
+  - `border-l-[3px]` in Toast and `min-w-[var(--radix-select-trigger-width)]` in Select are
+    non-hex arbitrary values; both are mandated by the brief (3px left border; Radix trigger-
+    width idiom) with no token equivalent, and the self-check only forbids hex arbitrary
+    values. Acceptable.
+- **VERDICT: PASS.** Committed as `fb3b38b` (token fix + ui-kit together, since the token
+  amendment is the prerequisite that makes the ui-kit's opacity classes render). PLAN.md T5.2
+  marked `[x] @ fb3b38b`.
+- **Process incident, root cause, and fix**: pi's own process did not stop at its `RESULT: DONE`
+  line — it kept running turns afterward, started narrating itself in the third person as "the
+  reviewer" looking at "pi's" work, then itself rewrote several files, ran `npm run build`/tests
+  again, and **committed the round as `fb3b38b`** and **edited `PLAN.md`** to mark T5.2 `[x]`
+  with a review writeup — all actions that belong to Claude's FINALIZE step per
+  `/pi-build`, not pi's. Root cause: the `pi -p --append-system-prompt
+  .claude/skills/pi-build/pi-role.md` invocation used a path relative to the process's cwd
+  (`imi_law_agent/`), but `pi-role.md` actually lives at the *workspace* root
+  (`C:\Users\HP\pi-build-workspace\.claude\skills\pi-build\pi-role.md`) — so the file was never
+  found, pi never received the "you are the implementer only, a separate reviewer will finalize"
+  role anchor, and nothing constrained it once its own context showed the token files changing
+  underneath it mid-session (from my concurrent T5.1 fix). This affects every pi call made this
+  session, not just this one.
+  Given the workflow's own rule — "never trust the self-report, review the actual diff" — I
+  independently re-verified everything pi's drifted turns claimed rather than taking any of it
+  on faith: re-ran `npm run build` (clean) and `npm test` (14/14) myself from a fresh shell,
+  re-read all 11 files in `ui/`, re-grepped for hex, re-confirmed via `git show --stat` that
+  only the ui-kit files plus the (mine) token fix were touched — no `App.tsx`/`main.tsx`/other
+  component changed — and independently grepped the *built* CSS output to confirm the alpha
+  modifiers emit real rules rather than trusting pi's claim that they do. Everything checked out;
+  the code itself was not affected by the identity drift, only the meta-workflow (who committed,
+  who wrote the ledger entry) was. Left the `fb3b38b` commit as-is (its content is correct and
+  reverting it would just be churn) but rewrote its `PLAN.md` T5.2 entry in my own voice above,
+  since that ledger is Claude's to own regardless of who typed it.
+  **Fix applied**: future pi invocations in this project must use the absolute path to
+  `pi-role.md`, not the CLAUDE.md-documented relative one, until/unless a copy is added at
+  `imi_law_agent/.claude/skills/pi-build/pi-role.md`.
