@@ -17,6 +17,10 @@ before it ships.
 [![LangGraph](https://img.shields.io/badge/LangGraph-1.x-1C3C3C)](backend/requirements.txt)
 [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](docker-compose.yml)
 
+**Live**: [casewright-two.vercel.app](https://casewright-two.vercel.app) · [Deployment guide](docs/deployment.md)
+
+![Casewright walkthrough — Overview dashboard, case health and risk scoring, cases, clients, calendar, and the command palette](docs/media/demo.gif)
+
 ## What it does
 
 - **Petition analysis** — assesses a case against all O-1A (8) or EB-1A (10) regulatory
