@@ -127,38 +127,49 @@ definition needs a real firm's real data and a real `ANTHROPIC_API_KEY`, neither
 in this dev environment. Scope here is therefore the *harness and tooling* a firm would use,
 built and self-tested (synthetic fixtures, scoring-logic unit tests), not an actual eval run.
 
-- [ ] T4.1 (Claude): golden-case eval harness (`scripts/eval_golden_cases.py`) — loads a
-      directory of golden-case fixtures (JSON: case facts, documents, the criteria/verdicts the
-      firm actually argued and won, and — if an RFE was issued — the objections actually raised),
-      replays `assess_criterion` and `strategy` against them, reports criterion-verdict
-      agreement, RFE-risk precision (predicted risks vs. objections actually raised), and
-      citation-verification pass rate. This is also the sales-pilot instrument per §13 ("run it
-      on ten of your decided cases"), so the report format matters. Acceptance: scoring/reporting
-      logic (pure functions, no LLM) unit-tested against synthetic fixtures; the harness's LLM-
-      dependent replay path is exercised structurally (same mocked-LLM pattern as the graph
-      tests) since there's no real API key here to run it against real cases.
-- [ ] T4.2 (pi): structured logging — `structlog` configuration (already a dependency, unused
-      until now) with request-id middleware and `thread_id` bound into every graph-node log line;
-      optional Sentry init behind a `SENTRY_DSN` env var (no-op, not an error, when unset).
-      Acceptance: log lines are JSON with request/thread correlation; app boots identically with
-      and without `SENTRY_DSN` set.
-- [ ] T4.3 (Claude): backup/restore rehearsal, actually run against the live db container (this
-      doesn't need the wedged Docker *build* pipeline — `docker exec` against the already-running
-      healthy `db` container works fine) — `scripts/backup_db.sh` (`pg_dump`), a restore
-      rehearsal that restores into a scratch database and verifies row counts match, MinIO
-      versioning enabled per-bucket. Acceptance: an actual backup → restore → verify round trip,
-      not just a script that's never been executed.
-- [ ] T4.4 (pi): precedent ingestion (`scripts/ingest_precedent.py`) — takes a firm_id and a
-      text/PDF file, chunks it (paragraph-based is enough), embeds via the existing
-      `app/services/embeddings.py`, inserts `KnowledgeChunk` rows with `kind="precedent"` and
-      that firm's `firm_id` (the retrieval side — tenant-scoped `firm_id IS NULL OR firm_id =
-      caller` — already exists from Phase 1, unchanged). Acceptance: ingesting a sample document
-      produces retrievable chunks scoped to that firm only (cross-firm retrieval test, same
-      tenancy discipline as everywhere else in this codebase).
-- [ ] T4.5 (Claude): metrics — a `scripts/report_metrics.py` computing what's derivable from the
-      existing schema without new instrumentation: gate wait time (interrupt→resume timestamp
-      delta on `agent_runs`), verification blocker rate (`needs_attention` fraction on
-      `draft_sections`). Run duration by node and tokens per case are **not** derivable today —
+- [x] T4.1 (Claude): golden-case eval harness (`app/eval/` + `scripts/eval_golden_cases.py`) —
+      replays `assess_criterion`/`strategy` against firm-supplied fixtures, scores criterion-
+      verdict agreement, RFE-risk precision (heuristic substring match, documented limitation),
+      citation-verification pass rate · reviewed 2026-07-22 @ 2964a90. Acceptance met exactly as
+      scoped: `app/eval/scoring.py` (pure) has 6 unit tests; `app/eval/replay.py` (DB+LLM) has 2
+      integration tests against real Postgres with a mocked LLM, using one clearly-labeled
+      *synthetic* fixture (`eval_fixtures/example_synthetic_case.json` — "Jane Example" /
+      "Example Corp", not real data).
+- [x] T4.2 (pi): structured logging — `structlog` JSON output, request-id middleware,
+      `thread_id`/`run_id`-correlated runner lifecycle logs, optional Sentry behind `SENTRY_DSN`
+      · reviewed 2026-07-22 @ 2964a90. Reviewed the actual diff: `logging_config.py`'s docstring
+      claimed stdlib loggers (uvicorn, sqlalchemy) get bridged into the same JSON renderer —
+      false, given `PrintLoggerFactory` (true bridging needs `structlog.stdlib.LoggerFactory` +
+      `ProcessorFormatter`); fixed the docstring to state what the code actually does instead of
+      what it doesn't. Also fixed `get_logger`'s return-type annotation
+      (`structlog.stdlib.BoundLogger`, which this config never produces →
+      `structlog.typing.FilteringBoundLogger`, matching the configured `wrapper_class`).
+      `runner.py`'s logging additions verified additive-only (control flow unchanged) by reading
+      the diff directly, not just trusting the self-report.
+- [x] T4.3 (Claude): backup/restore rehearsal — `ops/backup_db.sh`, `ops/restore_rehearsal.sh`,
+      MinIO bucket versioning · reviewed 2026-07-22 @ 2964a90. Actually run, not just written:
+      `pg_dump` → restore into a scratch database → row-count comparison across all 21 tables →
+      every table matched → `RESULT: PASS`. `put_bucket_versioning` verified live against the
+      running MinIO container (`get_bucket_versioning` confirmed `Status: Enabled` after boot).
+      Hit and fixed a real Git-Bash/MSYS bug along the way: paths meant for the container's
+      filesystem (`/tmp/...`) were silently rewritten to Windows host paths before reaching
+      `docker exec`, breaking `pg_restore`'s `-d`/file argument — fixed with `MSYS_NO_PATHCONV=1`.
+- [x] T4.4 (pi): precedent ingestion (`scripts/ingest_precedent.py`) — chunks a plain-text
+      precedent document, embeds each chunk, inserts firm-scoped `KnowledgeChunk` rows (reuses
+      Phase 1's tenant-scoped retrieval unchanged) · reviewed 2026-07-22 @ TBD. Reviewed the
+      diff: clean, correct firm-existence validation before ingesting, sensible chunking/length
+      filtering. pi's own self-check was `py_compile` + manual trace only — no actual DB test —
+      so Claude added the missing cross-firm retrieval test
+      (`tests/test_ingest_precedent.py`): ingest under firm A, confirm firm A's retrieval sees
+      both chunks and firm B's retrieval sees none, plus the unknown-firm-id rejection path.
+- [x] T4.5 (Claude): metrics (`scripts/report_metrics.py`) — verification blocker rate, gate
+      wait time (heuristic: delta between each `agent_run.gate_decision` audit entry and the
+      preceding audit entry for that case — `agent_runs` only keeps one `updated_at`, overwritten
+      on every transition, so the actual gate-open moment isn't separately recorded; documented
+      in the script, not hidden) · reviewed 2026-07-22 @ 2964a90. Run live against the dev
+      database (0/0 draft sections, no resolved gates yet — correctly reported as such rather
+      than crashing on division by zero). Run duration by node and tokens per case are **not**
+      included — neither is derivable today —
       that needs new columns (per-node timing, token usage capture from the Anthropic response)
       that don't exist; noted honestly as a gap rather than half-built.
 
