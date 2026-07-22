@@ -607,3 +607,183 @@ immediately after.
   fraction bar, not the full stepper) wasn't touched by the "thinking" upgrade — only the full
   `PipelineTracker` stepper (used in `OverviewTab`) got the glow/spinner/dots treatment. Worth a
   look if the dashboard-level progress indicator should feel equally "alive."
+
+## Phase 7 — Tier-1 new features (source: `casewright-new-features-plan.md`)
+
+User picked the recommended Tier-1 slate (max wow-per-effort): B1 Live agent theater, A1 RFE
+Risk Radar, B2 Case Health Score, A4 Grounded case Q&A, B3 Command palette. All five are
+additive surfaces over already-persisted state (progress JSONB, criterion_assessments,
+extracted_facts, strategy_memos) — no new agent/LangGraph nodes, per the plan doc's own
+cross-cutting principle #5. Built in this order (each pi round sequential, not parallel, since
+file sets overlap across tasks): T7.1 → T7.4 → T7.2 → T7.3 → T7.5.
+
+- [ ] T7.1 (pi): Command palette (⌘K / Ctrl+K) — new `frontend/src/components/CommandPalette.tsx`
+      using the `cmdk` library (add as a new frontend dependency; already vendored as a shadcn
+      example in `inspired_ui/src/app/components/ui/command.tsx` for styling reference only, not
+      to be imported from). Mounted once in `Shell.tsx` so it's available on every authenticated
+      route. Global keydown listener: `(e.metaKey || e.ctrlKey) && e.key === "k"` → `preventDefault`
+      + toggle open. Renders `Command.Dialog` with a text input, a "Cases" group (fetched via the
+      existing `["cases"]` query, `apiFetch<Case[]>("/cases")`, filtered by beneficiary name,
+      selecting one navigates to `/cases/{id}` via `useNavigate`), and a static "Navigation" group
+      (Dashboard → `/`). When the current route matches `/cases/:id` (via `useLocation`), add a
+      "Tabs" group listing the 6 tab names; selecting one navigates to
+      `/cases/{id}?tab={TabName}`. Companion change to `frontend/src/pages/CaseWorkspace.tsx`:
+      replace `TabsPrimitive.Root defaultValue="Overview"` with a controlled `value`/`onValueChange`
+      backed by `useSearchParams` (`tab` param, falling back to `"Overview"` if missing/invalid),
+      so both the palette and direct URL visits land on the right tab. Do not build a generic
+      command-registry abstraction — one component with inline data sources is enough. Do not wire
+      "start a run" / "open new case dialog" actions — out of scope this round.
+      · acceptance: `npm run build`/`npm test` clean; Ctrl+K (Cmd+K on mac) from Dashboard or a
+      Case Workspace opens a centered glass dialog; typing filters cases by name; selecting a case
+      navigates and closes the palette; on a case-workspace route, a "Tabs" group is present and
+      selecting an entry updates the URL and switches tabs; visiting `/cases/{id}?tab=Strategy`
+      directly opens on the Strategy tab; Esc closes the palette.
+
+- [ ] T7.4 (pi): Live agent theater — narration feed. Backend: extend the `progress` dict built in
+      `backend/app/agents/runner.py::_stream_with_progress` with a new `narration_log` list (append,
+      not overwrite, capped at the most recent 50 entries), each entry
+      `{node, phase: "start"|"finish", text, at}`. Add a `NODE_NARRATIONS: dict[str, dict[str,str]]`
+      module-level constant in `runner.py` mapping every node name in both `PETITION_TOPOLOGY` and
+      `RFE_TOPOLOGY` (see `frontend/src/components/pipeline/graphTopology.ts` for the authoritative
+      node list) to `{"start": "...", "finish": "..."}` plain-language strings (e.g. `"intake":
+      {"start": "Reading uploaded documents…", "finish": "Intake complete."}`). For
+      `assess_criterion`'s "start" phase, if the task debug event's `payload.get("input")` is a
+      dict containing a `criterion_key`, interpolate it (`f"Assessing {criterion_key} criterion
+      against 8 CFR standards…"`); otherwise fall back to the generic template — do not block on
+      finding it. This only touches `runner.py`; do not edit `petition_graph.py`/`rfe_graph.py`.
+      No DB migration needed (`progress` is already JSONB). Frontend: add `narration_log` to the
+      `RunProgress` interface in `frontend/src/types.ts` and its default (`[]`) in
+      `frontend/src/lib/runProgress.ts::normalizeProgress`. In
+      `frontend/src/components/pipeline/PipelineTracker.tsx`, add a small "Details" toggle
+      (chevron button) in the tracker's row that reveals a fixed-height (`max-h-40`) vertical
+      scrollable feed of the narration log (most recent last, auto-scrolled to bottom on new
+      entries), each line showing the node label + text in `text-text-dim`/`font-mono text-[11px]`
+      matching the tracker's existing type scale. Add a matching thin-scrollbar CSS rule for
+      `.overflow-y-auto` in `frontend/src/index.css` right below the existing `.overflow-x-auto`
+      rule (same properties, `width`/`height` swapped for the webkit pseudo-selectors) so the new
+      feed gets the same glass-matched scrollbar as T6.3's containers.
+      · acceptance: `pytest`/`npm run build`/`npm test` clean; a live or test run's
+      `agent_runs.progress.narration_log` accumulates entries as nodes start/finish (verify via a
+      graph test using the existing `_fake_call_structured` monkeypatch convention from
+      `test_petition_graph.py`); the PipelineTracker's new toggle reveals a scrolling text feed
+      that updates as `progress` refetches; toggle is collapsed by default so it doesn't change
+      the tracker's existing default appearance.
+
+- [ ] T7.2 (pi): Case Health Score. Backend: new `backend/app/services/health_score.py` with
+      `async def compute_case_health(db: AsyncSession, case_id: UUID) -> CaseHealthOut` — queries
+      `CriterionAssessment` (by `case_id`), `Document` (by `case_id`), and `DraftSection` (joined to
+      `Draft` on `Draft.case_id == case_id`) directly (three simple `select()`s; do not build a
+      single mega-join). Scoring (pure, deterministic, no LLM call):
+      `criteria_score` = round(mean of per-assessment value where met=100, partial=60, weak=25,
+      absent=0), 0 if no assessments; `evidence_score` = round(mean(`classification_confidence`)
+      * 100 over documents where it's not null), 0 if none; `verification_score` = round(mean over
+      draft sections of: 100 if `verification_notes` has no `blockers` and no `warnings`, 60 if
+      `warnings` only, 0 if any `blockers`), 0 if no sections. Overall `score` =
+      `round(0.4*criteria_score + 0.3*evidence_score + 0.3*verification_score)`. Also return
+      `criteria_met` (count where verdict=="met") and `criteria_total` (len of assessments). New
+      `CaseHealthOut` Pydantic schema in `backend/app/schemas/assessment.py` with fields `score,
+      criteria_score, evidence_score, verification_score, criteria_met, criteria_total` (all int
+      except the two criteria counts). New `CaseWithHealthOut(CaseOut)` schema in
+      `backend/app/schemas/case.py` adding `health: CaseHealthOut`. In `backend/app/api/cases.py`,
+      change `list_cases` and `get_case`'s `response_model` to `CaseWithHealthOut`/
+      `list[CaseWithHealthOut]`, building each response as
+      `CaseWithHealthOut(**CaseOut.model_validate(case).model_dump(), health=await
+      compute_case_health(db, case.id))`. A fresh case with zero criteria/documents/drafts must
+      return `health.score == 0` without erroring — do not add empty-state exceptions. Frontend: add
+      `CaseHealth` to `frontend/src/types.ts` and add `health: CaseHealth` to the `Case` interface.
+      New `frontend/src/components/HealthDial.tsx` — a small SVG radial ring (reuse
+      `PipelineTracker.tsx`'s `FanRing` stroke-dasharray technique) showing `score` 0-100 with the
+      number centered, stroke colored `text-met` (score>=70), `text-partial` (40-69), or `text-gap`
+      (<40). Clicking the dial expands an inline breakdown (no new modal system — a simple
+      conditional block is enough) listing the three component scores and `criteria_met`/
+      `criteria_total`. Mount it in `frontend/src/pages/Dashboard.tsx`'s `CaseCard` (near the
+      `StatusPill` row) and in `frontend/src/components/OverviewTab.tsx` (near the top, using
+      `caseData.health` — no new fetch needed since `caseData` already comes from `GET
+      /cases/{id}`).
+      · acceptance: `GET /cases` and `GET /cases/{id}` responses include a `health` object with
+      all six fields, each score an int 0-100; a case with no data returns score 0 without a 500;
+      new `backend/tests/test_case_health.py` covers the zero-state case and a case with a mix of
+      met/partial/absent criteria (asserting `criteria_score` math and `criteria_met` count),
+      following the firm/user/login helper pattern in `backend/tests/test_active_runs.py`; the
+      Dashboard's CaseCard and the Case Workspace Overview tab each render the dial and an
+      expandable breakdown; `npm run build`/`npm test`/`pytest` clean.
+
+- [ ] T7.3 (pi): RFE Risk Radar. Backend: new `backend/app/services/risk_radar.py` with a pure
+      function computing, per `CriterionAssessment`: `risk_score` = `base + round((1-confidence)*20)`
+      clamped to `[0,100]`, where `base` = met:15, partial:50, weak:75, absent:90;
+      `confidence_band` = "high" if `confidence>=0.75`, "medium" if `>=0.45`, else "low"; `why` =
+      `", ".join(reasoning.get("gaps", []))` or `reasoning.get("analysis", "")` truncated to ~200
+      chars if gaps is empty, else `"No specific gaps recorded."`; `fix` = the first entry of
+      `reasoning.get("gaps", [])` phrased as-is, else `f"Strengthen evidence for {criterion_key}."`.
+      `overall_risk` = round(mean of all `risk_score`s). New `CriterionRiskOut`/`RiskRadarOut`
+      schemas in `backend/app/schemas/assessment.py` (`RiskRadarOut`: `overall_risk: int,
+      criteria: list[CriterionRiskOut], general_risks: list[str]` — `general_risks` is the case's
+      `StrategyMemo.rfe_risks` passed through as-is, `[]` if no memo exists yet). New
+      `GET /cases/{case_id}/risk-radar` endpoint in `backend/app/api/assessment.py`
+      (mirror the existing `/criteria`/`/strategy` handlers in that file): 404 with a clear message
+      if no `CriterionAssessment` rows exist yet for the case (same pattern as the existing
+      `/strategy` 404). Frontend: add `CriterionRisk`/`RiskRadar` to `frontend/src/types.ts`. New
+      `frontend/src/components/RiskRadar.tsx` — fetches the endpoint, shows a caption "Modeled
+      risk, not a guarantee." at the top (guardrail from the plan doc — do not omit), then one row
+      per criterion: label + a horizontal bar (width% = `risk_score`, colored `bg-met` <35,
+      `bg-partial` 35-65, `bg-gap` >65) + the `confidence_band` as a small text tag; clicking a row
+      toggles an inline expansion showing "Why: {why}" / "Fix: {fix}". Below the per-criterion
+      rows, render `general_risks` as a small bulleted list labeled "Other flagged risks" (omit the
+      section entirely if empty). Mount `<RiskRadar caseId={caseId} />` in
+      `frontend/src/components/StrategyTab.tsx`, above `StrategyMemoView`.
+      · acceptance: `GET /cases/{id}/risk-radar` 404s with no criteria assessed yet; with
+      assessments present, returns `overall_risk` + per-criterion `risk_score`/`confidence_band`/
+      `why`/`fix` + `general_risks`; new `backend/tests/test_risk_radar.py` asserts risk ordering
+      (absent > weak > partial > met at equal confidence) and the 404 case; the Strategy tab shows
+      the radar above the memo with the guardrail caption always visible and rows expandable;
+      `npm run build`/`npm test`/`pytest` clean.
+
+- [ ] T7.5 (pi): Grounded Q&A over the case file. Backend: new
+      `backend/app/api/qa.py` (router prefix `/cases`, registered in `backend/app/main.py` next to
+      the other routers) with `POST /cases/{case_id}/qa`. Request schema `CaseQARequest{question:
+      str}`; response `CaseQAResponse{answer: str, grounded: bool, citations:
+      list[QACitation]}` where `QACitation{fact_id: UUID, document_id: UUID, exhibit_label: str |
+      None, source_page: int | None, source_quote: str | None}` (all new schemas in
+      `backend/app/schemas/qa.py`). Implementation: load all `ExtractedFact` rows for the case
+      (joined to `Document` for `exhibit_label`); if none exist, return `{answer: "No extracted
+      facts exist yet for this case — run intake first.", grounded: false, citations: []}` without
+      calling the LLM. Otherwise build a numbered context block (one line per fact: index,
+      `fact_type`, `payload`, `source_quote`) and call `call_structured` (imported as `from
+      app.agents.llm import call_structured`, tier="reasoning") with a
+      `QAModelOutput{answer: str, found: bool, cited_fact_indices: list[int]}` response_model. System
+      prompt must instruct: answer only from the numbered facts given; if they don't answer the
+      question, set `found=false` and a "not found in this record" style answer; always list the
+      indices actually relied on. Resolve `cited_fact_indices` back to the real fact rows,
+      silently skipping any out-of-range index (the model can hallucinate one — never let that
+      500). No new DB table for Q&A history — each call is stateless; the frontend keeps turns in
+      local component state only (explicitly in scope as the MVP boundary, not a gap to fix).
+      Frontend: add `QACitation`/`CaseQAResponse` to `frontend/src/types.ts`. New
+      `frontend/src/components/CaseQAPanel.tsx` — a text input + submit, a scrolling list of past
+      turns (question, then answer with inline citation markers styled like the existing
+      marker+verified pattern in `frontend/src/components/DraftsTab.tsx` lines ~65-69, using
+      `exhibit_label` + `source_page` as the marker text), a loading state while awaiting the
+      response, and a visually distinct-but-not-error muted style for `grounded: false` answers
+      (per the plan's guardrail: "not found" is a valid, frequent answer, not a failure). Add
+      `"Ask"` to the `TABS` array in `frontend/src/pages/CaseWorkspace.tsx` (after T7.1's URL-tab-param
+      work lands) with a `<TabsPrimitive.Content value="Ask"><CaseQAPanel caseId={caseId}
+      /></TabsPrimitive.Content>`.
+      · acceptance: a case with zero `extracted_facts` gets the graceful no-facts response without
+      an LLM call (verify via monkeypatching `qa.call_structured` to raise/track calls and
+      asserting it's never invoked); new `backend/tests/test_case_qa.py` monkeypatches
+      `qa.call_structured` (same convention as `test_petition_graph.py`'s `_fake_call_structured`)
+      to return a canned `QAModelOutput`, asserts the endpoint resolves indices to real
+      fact/document rows, and asserts the endpoint is firm-scoped (a cross-tenant `case_id` 404s
+      via the existing `get_case_scoped` dependency); the Case Workspace has a working "Ask" tab:
+      submitting a question shows a loading state then an answer with citation markers, and a
+      no-match question renders in the distinct muted style, not as an error; `npm run
+      build`/`npm test`/`pytest` clean.
+
+## Known follow-ups (Phase 7)
+
+- No historical tracking for Case Health Score (no sparkline of "how it moved this week", per
+  the original plan's suggestion) — would need a new time-series table; deferred until there's a
+  concrete reason to store it.
+- Command palette doesn't wire "start a run" / "open new case dialog" / arbitrary gate actions —
+  only navigation (cases, tabs, dashboard). Revisit if the user wants the fuller action set.
+- Grounded Q&A has no persisted chat history — reloading the Case Workspace loses prior turns.
+  Acceptable for the MVP surface; would need a new table if attorneys want a durable Q&A log.
