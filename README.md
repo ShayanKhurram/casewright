@@ -23,6 +23,10 @@ before it ships.
 - Email: `verify@casewright.app`
 - Password: `VerifyDeploy123!`
 
+> The backend is on Render's free tier, which sleeps after ~15 minutes idle. If it was recently
+> unvisited, the first sign-in can take **30–50 seconds** to wake up — the button just shows a
+> spinner during that window, so give it a moment rather than retrying.
+
 ![Casewright walkthrough — Overview dashboard, case health and risk scoring, cases, clients, calendar, and the command palette](docs/media/demo.gif)
 
 ## What it does
