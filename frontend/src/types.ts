@@ -67,6 +67,7 @@ export interface RunProgress {
   completed_nodes: string[];
   node_timestamps: Record<string, { started_at?: string; finished_at?: string }>;
   fan_out: Record<string, { done: number; total: number }>;
+  narration_log: { node: string; phase: "start" | "finish"; text: string; at: string }[];
 }
 
 export interface AgentRun {

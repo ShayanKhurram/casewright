@@ -46,6 +46,24 @@ body {
   border-radius: var(--radius-pill);
 }
 
+/* Same thin, glass-matched scrollbar for vertical `overflow-y-auto` containers (T7.4 added
+   the PipelineTracker narration feed as the first of these) — matches the x-axis rule above
+   but sizes the webkit scrollbar by width instead of height. */
+.overflow-y-auto {
+  scrollbar-width: thin;
+  scrollbar-color: var(--hairline-strong) transparent;
+}
+.overflow-y-auto::-webkit-scrollbar {
+  width: 6px;
+}
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: transparent;
+}
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: var(--hairline-strong);
+  border-radius: var(--radius-pill);
+}
+
 /* Route-transition progress bar (§4): a 2px accent bar, CSS-only, no JS timing dependency. */
 @keyframes route-progress {
   0% {

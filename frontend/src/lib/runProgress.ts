@@ -11,5 +11,6 @@ export function normalizeProgress(raw: Partial<RunProgress> | null | undefined):
     completed_nodes: raw?.completed_nodes ?? [],
     node_timestamps: raw?.node_timestamps ?? {},
     fan_out: raw?.fan_out ?? {},
+    narration_log: raw?.narration_log ?? [],
   };
 }

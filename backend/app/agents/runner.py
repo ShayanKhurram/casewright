@@ -32,6 +32,24 @@ FAN_OUT_TOTALS = {
     "assess_criterion": lambda state: len(criteria_for(state["visa_category"])),
 }
 
+# Plain-language narration strings for the live agent theater feed (T7.4). Every node key in
+# frontend/src/components/pipeline/graphTopology.ts's PETITION_TOPOLOGY and RFE_TOPOLOGY is
+# covered here so the tracker never falls through to the generic template for a known node.
+NODE_NARRATIONS: dict[str, dict[str, str]] = {
+    "intake": {"start": "Reading uploaded documents…", "finish": "Intake complete."},
+    "profile": {"start": "Building beneficiary profile…", "finish": "Profile built."},
+    "assess_criterion": {"start": "Assessing a criterion against 8 CFR standards…", "finish": "Criterion assessed."},
+    "strategy": {"start": "Drafting strategy memo…", "finish": "Strategy memo ready."},
+    "strategy_gate": {"start": "Waiting for attorney review…", "finish": "Attorney decision recorded."},
+    "drafting": {"start": "Drafting petition sections…", "finish": "Draft sections generated."},
+    "verification": {"start": "Verifying citations and claims…", "finish": "Verification complete."},
+    "review_gate": {"start": "Waiting for attorney review…", "finish": "Attorney decision recorded."},
+    "finalize": {"start": "Finalizing case package…", "finish": "Finalized."},
+    "parse_rfe": {"start": "Parsing RFE notice…", "finish": "RFE parsed."},
+    "plan_rebuttals": {"start": "Planning rebuttals…", "finish": "Rebuttal plan ready."},
+    "draft_rfe": {"start": "Drafting RFE response…", "finish": "RFE response drafted."},
+}
+
 
 async def start_run(
     *, case_id: uuid.UUID, firm_id: uuid.UUID, graph: str, initial_state: RFEState | PetitionState
@@ -103,7 +121,13 @@ async def _stream_with_progress(
     "task"/"task_result" debug event is one node execution — for Send-fan-out nodes (e.g.
     assess_criterion), each parallel branch gets its own pair of events, which is what makes a
     live "n/m" fan-out counter possible."""
-    progress: dict = {"current_node": None, "completed_nodes": [], "node_timestamps": {}, "fan_out": {}}
+    progress: dict = {
+        "current_node": None,
+        "completed_nodes": [],
+        "node_timestamps": {},
+        "fan_out": {},
+        "narration_log": [],
+    }
 
     async for chunk in graph.astream(input_, config, stream_mode="debug"):
         event_type = chunk.get("type")
@@ -140,6 +164,23 @@ async def _stream_with_progress(
                 # human review, not that it finished — don't mark it done; current_node staying
                 # on the gate name is what tells the frontend "waiting here."
                 progress["completed_nodes"].append(name)
+
+        phase = "start" if event_type == "task" else "finish"
+        template = NODE_NARRATIONS.get(name, {})
+        text = template.get(
+            phase, f"{name} {phase}ed." if phase == "start" else f"{name} finished."
+        )
+        if name == "assess_criterion" and phase == "start":
+            # The per-branch criterion_key lives on the Send's per-branch input (payload["input"]),
+            # not the graph's top-level input_ (which only carries visa_category). Fall back to
+            # the generic template if neither source exposes it cleanly.
+            branch_input = payload.get("input")
+            if isinstance(branch_input, dict):
+                criterion_key = branch_input.get("criterion_key")
+                if criterion_key:
+                    text = f"Assessing {criterion_key} criterion against 8 CFR standards…"
+        progress["narration_log"].append({"node": name, "phase": phase, "text": text, "at": timestamp})
+        progress["narration_log"] = progress["narration_log"][-50:]
 
         await _write_progress(run_id, progress)
 

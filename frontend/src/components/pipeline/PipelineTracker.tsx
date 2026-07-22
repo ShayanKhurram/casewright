@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { Check, Loader2, X } from "lucide-react";
 
 import { normalizeProgress } from "../../lib/runProgress";
@@ -125,6 +125,16 @@ export default function PipelineTracker({ graph, status, progress: rawProgress }
     return () => window.clearInterval(id);
   }, []);
 
+  // Live narration feed (T7.4): collapsed by default, toggled by a small "Details" button.
+  // Auto-scrolls to the newest entry whenever the log grows.
+  const [showDetails, setShowDetails] = useState(false);
+  const narrationRef = useRef<HTMLDivElement | null>(null);
+  const narration = progress.narration_log;
+  useEffect(() => {
+    const el = narrationRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [narration.length]);
+
   const now = Date.now();
 
   // w-max (not the flex row's default shrink-to-fit): callers that place this in a narrower
@@ -132,7 +142,15 @@ export default function PipelineTracker({ graph, status, progress: rawProgress }
   // wide tracker, not squeeze one — without w-max, the flex-1 connector lines below get shrunk
   // toward 0 to fit the container, and adjacent node labels visually run together with no gap.
   return (
-    <ol className="flex w-max items-start">
+    <div className="flex flex-col gap-1.5">
+      <button
+        type="button"
+        onClick={() => setShowDetails((s) => !s)}
+        className="self-end text-[11px] text-text-faint hover:text-text-dim"
+      >
+        {showDetails ? "Details ▴" : "Details ▾"}
+      </button>
+      <ol className="flex w-max items-start">
       {topology.map((node, i) => {
         const state = deriveState(node, status, progress);
         const labelColor = LABEL_COLOR[state];
@@ -227,6 +245,19 @@ export default function PipelineTracker({ graph, status, progress: rawProgress }
           </Fragment>
         );
       })}
-    </ol>
+      </ol>
+      {showDetails ? (
+        <div
+          ref={narrationRef}
+          className="max-h-40 overflow-y-auto rounded-control border border-border bg-surface-2 p-2 font-mono text-[11px] text-text-dim space-y-1"
+        >
+          {narration.map((entry, i) => (
+            <div key={i} className="whitespace-pre-wrap">
+              {entry.node} — {entry.text}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
   );
 }

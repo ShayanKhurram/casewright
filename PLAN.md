@@ -642,7 +642,7 @@ file sets overlap across tasks): T7.1 → T7.4 → T7.2 → T7.3 → T7.5.
       filtered/selected a real case, and the "Tabs" group's Strategy item navigated to
       `?tab=Strategy` and switched tabs)
 
-- [ ] T7.4 (pi): Live agent theater — narration feed. Backend: extend the `progress` dict built in
+- [x] T7.4 (pi): Live agent theater — narration feed. Backend: extend the `progress` dict built in
       `backend/app/agents/runner.py::_stream_with_progress` with a new `narration_log` list (append,
       not overwrite, capped at the most recent 50 entries), each entry
       `{node, phase: "start"|"finish", text, at}`. Add a `NODE_NARRATIONS: dict[str, dict[str,str]]`
@@ -670,7 +670,12 @@ file sets overlap across tasks): T7.1 → T7.4 → T7.2 → T7.3 → T7.5.
       graph test using the existing `_fake_call_structured` monkeypatch convention from
       `test_petition_graph.py`); the PipelineTracker's new toggle reveals a scrolling text feed
       that updates as `progress` refetches; toggle is collapsed by default so it doesn't change
-      the tracker's existing default appearance.
+      the tracker's existing default appearance. · reviewed 2026-07-22 @ <sha-pending> (backend:
+      full `pytest -q` — 34/34 — run inside the backend container after copying in the updated
+      `runner.py`; frontend: `npm run build`/`npm test` clean; verified live via a throwaway
+      `agent_runs` row with a populated `narration_log` — the "Details ▾" toggle revealed the
+      full chronological feed including the per-criterion "Assessing eb1a.awards criterion…"
+      text, row then deleted)
 
 - [ ] T7.2 (pi): Case Health Score. Backend: new `backend/app/services/health_score.py` with
       `async def compute_case_health(db: AsyncSession, case_id: UUID) -> CaseHealthOut` — queries
