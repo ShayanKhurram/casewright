@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     voyage_api_key: str = ""
 
     cors_origins: str = "http://localhost:5173,http://localhost:8080"
+    sentry_dsn: str = ""
 
     @property
     def cors_origin_list(self) -> list[str]:

@@ -5,6 +5,7 @@ transport change, not a redesign."""
 import asyncio
 import uuid
 
+import structlog
 from langgraph.types import Command
 
 from app.agents.checkpointer import get_checkpointer
@@ -12,7 +13,10 @@ from app.agents.petition_graph import build_petition_graph
 from app.agents.rfe_graph import build_rfe_graph
 from app.agents.state import PetitionState, RFEState
 from app.db import session_scope
+from app.logging_config import get_logger
 from app.models.ops import AgentRun
+
+log = get_logger(__name__)
 
 GRAPH_BUILDERS = {"rfe": build_rfe_graph, "petition": build_petition_graph}
 
@@ -46,6 +50,8 @@ async def resume_run(*, run_id: uuid.UUID, decision: str, notes: str | None) -> 
 async def _drive(
     run_id: uuid.UUID, graph_name: str, thread_id: str, initial_state: RFEState | PetitionState
 ) -> None:
+    structlog.contextvars.bind_contextvars(run_id=str(run_id), thread_id=thread_id)
+    log.info("agent_run.drive_start", graph=graph_name)
     config = {"configurable": {"thread_id": thread_id}}
     try:
         async with get_checkpointer() as checkpointer:
@@ -53,10 +59,15 @@ async def _drive(
             await graph.ainvoke(initial_state, config)
             await _sync_status(graph, config, run_id)
     except Exception as exc:
+        log.error("agent_run.drive_failed", error=str(exc))
         await _mark_failed(run_id, str(exc))
+    finally:
+        structlog.contextvars.clear_contextvars()
 
 
 async def _resume(run_id: uuid.UUID, graph_name: str, thread_id: str, decision: str, notes: str | None) -> None:
+    structlog.contextvars.bind_contextvars(run_id=str(run_id), thread_id=thread_id)
+    log.info("agent_run.resume_start", graph=graph_name, decision=decision)
     config = {"configurable": {"thread_id": thread_id}}
     try:
         async with get_checkpointer() as checkpointer:
@@ -64,7 +75,10 @@ async def _resume(run_id: uuid.UUID, graph_name: str, thread_id: str, decision: 
             await graph.ainvoke(Command(resume={"decision": decision, "notes": notes}), config)
             await _sync_status(graph, config, run_id)
     except Exception as exc:
+        log.error("agent_run.resume_failed", error=str(exc))
         await _mark_failed(run_id, str(exc))
+    finally:
+        structlog.contextvars.clear_contextvars()
 
 
 async def _sync_status(graph, config: dict, run_id: uuid.UUID) -> None:
@@ -78,13 +92,16 @@ async def _sync_status(graph, config: dict, run_id: uuid.UUID) -> None:
             payload = interrupts[0].value if interrupts else {}
             run.gate_payload = payload
             run.current_gate = payload.get("gate")
+            log.info("agent_run.paused", current_gate=run.current_gate)
         else:
             run.status = "completed"
             run.current_gate = None
             run.gate_payload = {}
+            log.info("agent_run.completed")
 
 
 async def _mark_failed(run_id: uuid.UUID, error: str) -> None:
+    log.error("agent_run.marked_failed", error=error)
     async with session_scope() as db:
         run = await db.get(AgentRun, run_id)
         if run is not None:

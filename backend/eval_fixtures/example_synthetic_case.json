@@ -1,0 +1,25 @@
+{
+  "case_name": "SYNTHETIC EXAMPLE - not a real filed case, for harness format demonstration only",
+  "visa_category": "EB-1A",
+  "beneficiary_name": "Jane Example",
+  "documents": [
+    {
+      "kind": "award",
+      "exhibit_label": "EX-1",
+      "extracted_text": "National Excellence Award certificate awarded to Jane Example by the International Federation of Example Science, 2022, selected from a pool of 400 nominees nationwide."
+    },
+    {
+      "kind": "cv",
+      "exhibit_label": "EX-2",
+      "extracted_text": "Curriculum vitae: PhD in Example Science, 2015. Lead Researcher at Example Corp, 2018-present. Peer reviewer for the Journal of Example Studies, 2019-present."
+    }
+  ],
+  "known_outcome": {
+    "criteria_verdicts": {
+      "eb1a.awards": "met",
+      "eb1a.judging": "met",
+      "eb1a.membership": "absent"
+    },
+    "rfe_objections_raised": []
+  }
+}

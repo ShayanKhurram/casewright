@@ -52,6 +52,11 @@ def _ensure_bucket_sync() -> None:
             if code not in ("BucketAlreadyOwnedByYou", "BucketAlreadyExists"):
                 raise
 
+    # Versioning on (plan §11): an accidental overwrite/delete of an exhibit is recoverable.
+    # put_bucket_versioning is idempotent — safe to call on every boot, including the race
+    # above where multiple workers reach this line concurrently.
+    _client.put_bucket_versioning(Bucket=settings.s3_bucket, VersioningConfiguration={"Status": "Enabled"})
+
 
 async def ensure_bucket() -> None:
     await asyncio.to_thread(_ensure_bucket_sync)

@@ -17,3 +17,4 @@ frontend/dist/
 backend/.pi-sessions/
 *.tsbuildinfo
 .claude/
+backups/

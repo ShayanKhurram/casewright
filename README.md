@@ -48,4 +48,28 @@ npm run dev
 ## Architecture
 
 See `casewright-implementation-plan.md` §2–§3. In short: FastAPI + SQLAlchemy async + Postgres
-(pgvector) behind Nginx, LangGraph agent layer lands in Phase 1+, React/Vite/Tailwind frontend.
+(pgvector) behind Nginx, LangGraph agent layer (RFE + petition graphs), React/Vite/Tailwind
+frontend.
+
+## Operations
+
+```
+ops/backup_db.sh                       # pg_dump the live db into ./backups/ (gitignored)
+ops/restore_rehearsal.sh <dump-file>   # restore into a scratch db, verify row counts, clean up
+```
+
+Both scripts talk to the running `db` compose service via `docker exec` — no local `pg_dump`/
+`psql` install needed. Rehearse restores quarterly, not just after writing the backup script once.
+
+```
+python -m scripts.eval_golden_cases --fixtures-dir eval_fixtures   # golden-case eval harness
+python -m scripts.ingest_precedent --firm-id <uuid> --file f.txt --ref "..."  # firm precedent
+python -m scripts.report_metrics                                    # verification blocker rate, gate wait time
+```
+
+The eval harness's `eval_fixtures/` ships one clearly-labeled *synthetic* example — real usage
+means a firm supplying their own closed cases in the same JSON format (see
+`app/eval/schemas.py`), not fixtures shipped with the repo.
+
+Structured JSON logs (`structlog`) are on by default; set `SENTRY_DSN` to enable error tracking
+(no-op, not an error, when unset).
