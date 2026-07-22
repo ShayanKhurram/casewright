@@ -12,7 +12,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
-from app.models.case import Case
+from app.models.case import Case, Document
+from app.models.draft import DraftSection
+from app.models.ops import AgentRun
 from app.models.tenant import User
 from app.services.security import decode_access_token
 
@@ -67,3 +69,47 @@ async def get_case_scoped(
     if case is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Case not found")
     return case
+
+
+async def get_document_scoped(
+    document_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    case: Case = Depends(get_case_scoped),
+) -> Document:
+    """Reuses get_case_scoped, then further filters by case_id — a document can't be reached
+    by id alone even within the caller's own firm if it belongs to a different case."""
+    result = await db.execute(
+        select(Document).where(Document.id == document_id, Document.case_id == case.id)
+    )
+    document = result.scalar_one_or_none()
+    if document is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+    return document
+
+
+async def get_run_scoped(
+    run_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> AgentRun:
+    result = await db.execute(
+        select(AgentRun).where(AgentRun.id == run_id, AgentRun.firm_id == current_user.firm_id)
+    )
+    run = result.scalar_one_or_none()
+    if run is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Run not found")
+    return run
+
+
+async def get_section_scoped(
+    section_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> DraftSection:
+    result = await db.execute(
+        select(DraftSection).where(DraftSection.id == section_id, DraftSection.firm_id == current_user.firm_id)
+    )
+    section = result.scalar_one_or_none()
+    if section is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Section not found")
+    return section

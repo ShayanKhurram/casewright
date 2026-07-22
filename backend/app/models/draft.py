@@ -57,5 +57,7 @@ class Citation(Base, UUIDPKMixin, TenantMixin, TimestampMixin):
     authority_ref: Mapped[str | None] = mapped_column(
         String(255), nullable=True, doc='e.g. "8 CFR 204.5(h)(3)(i)".'
     )
-    marker: Mapped[str] = mapped_column(String(20), nullable=False, doc='e.g. "[EX-3]".')
+    marker: Mapped[str] = mapped_column(
+        String(255), nullable=False, doc='e.g. "[EX-3]" or "[8 CFR 204.5(h)(3)(i)]".'
+    )
     verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

@@ -15,3 +15,5 @@ build/
 .pi-sessions/
 frontend/dist/
 backend/.pi-sessions/
+*.tsbuildinfo
+.claude/

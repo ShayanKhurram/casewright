@@ -37,3 +37,21 @@ export async function login(email: string, password: string): Promise<string> {
   setToken(data.access_token);
   return data.access_token;
 }
+
+export async function uploadDocument<T>(caseId: string, kind: string, file: File): Promise<T> {
+  const token = getToken();
+  const form = new FormData();
+  form.append("kind", kind);
+  form.append("file", file);
+
+  const res = await fetch(`/api/cases/${caseId}/documents`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(detail || `${res.status} ${res.statusText}`);
+  }
+  return res.json() as Promise<T>;
+}

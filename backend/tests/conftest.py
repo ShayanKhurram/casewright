@@ -3,6 +3,8 @@ uses Postgres-only types (JSONB, pgvector) that sqlite can't represent. Each tes
 a transaction that's rolled back afterward, so tests never see each other's rows.
 """
 
+import asyncio
+import sys
 from collections.abc import AsyncGenerator
 
 import pytest
@@ -11,6 +13,14 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
+if sys.platform == "win32":
+    # psycopg's async mode (used by the LangGraph Postgres checkpointer) can't run under
+    # Windows' default ProactorEventLoop. Production only ever runs in Docker (Linux), where
+    # this doesn't apply — this is a Windows-host test-runner accommodation only.
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+import app.db as db_module
+from app.agents import checkpointer as checkpointer_module
 from app.config import get_settings
 from app.db import get_db
 from app.main import app
@@ -21,6 +31,11 @@ settings = get_settings()
 
 def _test_db_url() -> str:
     base, _, _ = settings.database_url.rpartition("/")
+    return f"{base}/casewright_test"
+
+
+def _test_db_url_sync() -> str:
+    base, _, _ = settings.database_url_sync.rpartition("/")
     return f"{base}/casewright_test"
 
 
@@ -76,6 +91,20 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
     app.dependency_overrides.clear()
+
+
+@pytest_asyncio.fixture
+async def graph_db(engine, monkeypatch) -> AsyncGenerator[None, None]:
+    """LangGraph nodes call session_scope() directly (not via FastAPI's get_db), and the
+    checkpointer opens its own psycopg connection — neither goes through the client fixture's
+    dependency override. This redirects both at the test database so node writes and
+    checkpoint state land where the test can see them, instead of the real dev database that
+    app.db.engine points at by default."""
+    test_session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    monkeypatch.setattr(db_module, "async_session_factory", test_session_factory)
+    monkeypatch.setattr(checkpointer_module.settings, "database_url_sync", _test_db_url_sync())
+    await checkpointer_module.setup_checkpointer_tables()
+    yield
 
 
 @pytest.fixture

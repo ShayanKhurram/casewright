@@ -18,6 +18,10 @@ class Settings(BaseSettings):
     jwt_expire_minutes: int = 480
 
     s3_endpoint_url: str = "http://localhost:9000"
+    s3_public_endpoint_url: str = ""
+    """Used only for presigned-URL generation. Falls back to s3_endpoint_url when unset —
+    override this in Compose, where s3_endpoint_url is the container-internal "minio:9000"
+    host (unreachable from a browser) but the presigned URL needs a browser-reachable host."""
     s3_access_key: str = "casewright"
     s3_secret_key: str = "casewright123"
     s3_bucket: str = "casewright-documents"
