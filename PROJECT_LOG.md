@@ -882,6 +882,27 @@ tasks for safe parallel pi sessions).
   own brief specified the button, this isn't a pi deviation. Stamped `[x]` in `PLAN.md` at commit
   `8f675d5`.
 
+- **T7.3 (pi, one round, no re-guide needed): RFE risk radar.** Brief specified a pure
+  `compute_criterion_risk()` (verdict base + a confidence-driven adjustment, clamped 0-100) and
+  `compute_overall_risk()` in a new `risk_radar.py`, a new `GET /cases/{id}/risk-radar` endpoint
+  mirroring `assessment.py`'s existing `/criteria`/`/strategy` style exactly, and a `RiskRadar`
+  component mounted above the strategy memo with a mandatory "Modeled risk, not a guarantee."
+  caption (a guardrail from the source plan doc). pi delivered exactly the file set scoped. One
+  small, well-contained fix not specified in the brief: aliased the type import as `RiskRadar as
+  RiskRadarData` in the new component file to avoid a naming clash with the component's own name
+  under `isolatedModules` — confined entirely to the new file, no scope creep.
+  Verified independently: full backend `pytest -q` in the container (38/38, including the new
+  2-test `test_risk_radar.py` — a 404-when-empty check and a risk-ordering check across all four
+  verdicts at fixed confidence). Verified live: seeded 3 real `criterion_assessments`
+  (met/partial/absent) plus a `strategy_memos` row with `rfe_risks` on the same test case,
+  confirmed the caption renders, each row's meter bar is colored/sized by `risk_score`, clicking a
+  row expands real `why`/`fix` text pulled from `reasoning.gaps`, and "Other flagged risks" lists
+  the memo's `rfe_risks` — then cleaned up the seeded rows. Found one UX nit while looking at the
+  live screenshot (not a functional defect, my own spec's oversight): the `confidence_band` tag
+  ("LOW"/"MEDIUM"/"HIGH") describes confidence in the assessment, not risk level, but sitting next
+  to the reddest/highest-risk bar it visually reads backwards ("low" next to the scariest bar).
+  Logged as a follow-up rather than re-guided. Stamped `[x]` in `PLAN.md` at commit `6fc6960`.
+
 ## Known Issues / Open TODOs
 
 All four plan phases now have code-level completeness (see `PLAN.md`), and both major
@@ -1001,5 +1022,8 @@ live against a real model, not just mocked ones. What's left below is smaller an
   restructuring `CaseCard` so the `<Link>` wraps only the navigable content and the dial sits
   outside it (e.g. an absolutely-positioned sibling), not by removing the `<button>` semantics.
 - Left two throwaway firm/admins in the dev database from Phase 7 live-verification rounds
-  (`t71-review@firm.test` / "T71 Review Firm", used for T7.1/T7.2/T7.4) — not cleaned up, same
-  policy as Phase 6's leftover test firm.
+  (`t71-review@firm.test` / "T71 Review Firm", used for T7.1/T7.2/T7.3/T7.4) — not cleaned up,
+  same policy as Phase 6's leftover test firm.
+- RiskRadar's `confidence_band` tag reads ambiguously next to a high-risk bar (describes
+  confidence in the read, not risk itself) — see T7.3's timeline entry. Consider a "confidence:"
+  label prefix if real users find it confusing.

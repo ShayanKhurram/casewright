@@ -752,7 +752,7 @@ file sets overlap across tasks): T7.1 → T7.4 → T7.2 → T7.3 → T7.5.
       `why`/`fix` + `general_risks`; new `backend/tests/test_risk_radar.py` asserts risk ordering
       (absent > weak > partial > met at equal confidence) and the 404 case; the Strategy tab shows
       the radar above the memo with the guardrail caption always visible and rows expandable;
-      `npm run build`/`npm test`/`pytest` clean. · reviewed 2026-07-22 @ <sha-pending> (backend:
+      `npm run build`/`npm test`/`pytest` clean. · reviewed 2026-07-22 @ 6fc6960 (backend:
       full `pytest -q` in the container — 38/38, including the new 2-test `test_risk_radar.py`;
       frontend build/test clean; verified live — seeded 3 real assessments + a strategy memo,
       confirmed the caption, per-row color-coded meters, row-click expand showing real Why/Fix
