@@ -6,15 +6,19 @@ import { AgentRun } from "../types";
 export default function GateBanner({ run, onDecided }: { run: AgentRun; onDecided: () => void }) {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function decide(decision: "approve" | "revise") {
     setSubmitting(true);
+    setError(null);
     try {
       await apiFetch(`/runs/${run.id}/gate`, {
         method: "POST",
         body: JSON.stringify({ decision, notes: notes || null }),
       });
       onDecided();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to submit the decision");
     } finally {
       setSubmitting(false);
     }
@@ -39,6 +43,7 @@ export default function GateBanner({ run, onDecided }: { run: AgentRun; onDecide
       {needingAttention > 0 && (
         <p className="mb-2 text-sm text-verdict-gap">{needingAttention} section(s) need attention.</p>
       )}
+      {error && <p className="mb-2 text-sm text-verdict-gap">{error}</p>}
       <textarea
         value={notes}
         onChange={(e) => setNotes(e.target.value)}
