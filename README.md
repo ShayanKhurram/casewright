@@ -19,6 +19,10 @@ before it ships.
 
 **Live**: [casewright-two.vercel.app](https://casewright-two.vercel.app) · [Deployment guide](docs/deployment.md)
 
+**Try it** — sign in with the demo firm (synthetic data only, no real client information):
+- Email: `verify@casewright.app`
+- Password: `VerifyDeploy123!`
+
 ![Casewright walkthrough — Overview dashboard, case health and risk scoring, cases, clients, calendar, and the command palette](docs/media/demo.gif)
 
 ## What it does
