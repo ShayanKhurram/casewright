@@ -724,7 +724,7 @@ file sets overlap across tasks): T7.1 → T7.4 → T7.2 → T7.3 → T7.5.
       Dashboard's `<Link>` (interactive-in-interactive nesting is invalid HTML, though it renders
       and behaves correctly in every browser tested) — low priority, noted in Known Issues.
 
-- [ ] T7.3 (pi): RFE Risk Radar. Backend: new `backend/app/services/risk_radar.py` with a pure
+- [x] T7.3 (pi): RFE Risk Radar. Backend: new `backend/app/services/risk_radar.py` with a pure
       function computing, per `CriterionAssessment`: `risk_score` = `base + round((1-confidence)*20)`
       clamped to `[0,100]`, where `base` = met:15, partial:50, weak:75, absent:90;
       `confidence_band` = "high" if `confidence>=0.75`, "medium" if `>=0.45`, else "low"; `why` =
@@ -752,7 +752,17 @@ file sets overlap across tasks): T7.1 → T7.4 → T7.2 → T7.3 → T7.5.
       `why`/`fix` + `general_risks`; new `backend/tests/test_risk_radar.py` asserts risk ordering
       (absent > weak > partial > met at equal confidence) and the 404 case; the Strategy tab shows
       the radar above the memo with the guardrail caption always visible and rows expandable;
-      `npm run build`/`npm test`/`pytest` clean.
+      `npm run build`/`npm test`/`pytest` clean. · reviewed 2026-07-22 @ <sha-pending> (backend:
+      full `pytest -q` in the container — 38/38, including the new 2-test `test_risk_radar.py`;
+      frontend build/test clean; verified live — seeded 3 real assessments + a strategy memo,
+      confirmed the caption, per-row color-coded meters, row-click expand showing real Why/Fix
+      text, and the "Other flagged risks" list from `rfe_risks`, then cleaned up). UX nit for a
+      future pass, not a defect: the `confidence_band` tag ("LOW"/"MEDIUM"/"HIGH") describes
+      confidence in the *assessment*, not the risk level — sitting next to the reddest/highest-
+      risk bar (`eb1a.judging`, absent verdict, low confidence) it reads at a glance like "low
+      risk," which is backwards. The bar's color/length already carries risk correctly; the tag
+      would benefit from a "confidence:" prefix or repositioning if this becomes a real usage
+      complaint.
 
 - [ ] T7.5 (pi): Grounded Q&A over the case file. Backend: new
       `backend/app/api/qa.py` (router prefix `/cases`, registered in `backend/app/main.py` next to

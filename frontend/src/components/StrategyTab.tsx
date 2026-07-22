@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiFetch } from "../lib/api";
 import { AgentRun, StrategyMemo as StrategyMemoType } from "../types";
 import StrategyMemoView from "./StrategyMemo";
+import RiskRadar from "./RiskRadar";
 import { SkeletonBlock, SkeletonGate } from "./ui/Skeleton";
 
 function StrategySkeleton() {
@@ -47,12 +48,20 @@ export default function StrategyTab({ caseId }: { caseId: string }) {
   }
 
   if (error) {
-    return <p className="text-sm text-text-dim">No strategy memo yet — run petition analysis first.</p>;
+    return (
+      <>
+        <RiskRadar caseId={caseId} />
+        <p className="text-sm text-text-dim">No strategy memo yet — run petition analysis first.</p>
+      </>
+    );
   }
 
   return (
-    <SkeletonGate loading={isLoading || !memo} skeleton={<StrategySkeleton />}>
-      {memo ? <StrategyMemoView memo={memo} onGateDecision={gateRun ? handleGateDecision : undefined} /> : <div />}
-    </SkeletonGate>
+    <>
+      <RiskRadar caseId={caseId} />
+      <SkeletonGate loading={isLoading || !memo} skeleton={<StrategySkeleton />}>
+        {memo ? <StrategyMemoView memo={memo} onGateDecision={gateRun ? handleGateDecision : undefined} /> : <div />}
+      </SkeletonGate>
+    </>
   );
 }

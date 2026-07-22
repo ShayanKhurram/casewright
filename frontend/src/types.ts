@@ -159,6 +159,22 @@ export interface Draft {
   sections: DraftSection[];
 }
 
+export interface CriterionRisk {
+  criterion_key: string;
+  verdict: string;
+  confidence: number;
+  risk_score: number;
+  confidence_band: "low" | "medium" | "high";
+  why: string;
+  fix: string;
+}
+
+export interface RiskRadar {
+  overall_risk: number;
+  criteria: CriterionRisk[];
+  general_risks: string[];
+}
+
 export interface CriterionAssessment {
   id: string;
   case_id: string;

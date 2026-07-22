@@ -24,6 +24,22 @@ class CaseHealthOut(BaseModel):
     criteria_total: int
 
 
+class CriterionRiskOut(BaseModel):
+    criterion_key: str
+    verdict: str
+    confidence: float
+    risk_score: int
+    confidence_band: str
+    why: str
+    fix: str
+
+
+class RiskRadarOut(BaseModel):
+    overall_risk: int
+    criteria: list[CriterionRiskOut]
+    general_risks: list[str]
+
+
 class StrategyMemoOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
