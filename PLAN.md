@@ -86,28 +86,38 @@ CriteriaTab/CriterionMatrix, StrategyTab/StrategyMemo) — what remains is the s
 the Overview tab and run timeline, upgrading the deadline badge to the spec'd SVG ring, and a
 first real frontend test suite (currently zero coverage — see Known Issues).
 
-- [ ] T3.1 (pi): `Shell` component (nav bar + firm context from the JWT, sign-out) wrapping
-      every authenticated route; `Overview` tab in `CaseWorkspace` (profile summary from
-      `case.profile`, status, and an `AgentRunTimeline` component listing `agent_runs` for the
-      case with graph/status/timestamps — reuses `StatusPill`). Bounded, no new backend needed
-      (all data already exposed by existing endpoints). Acceptance: `npm run build` clean, Shell
-      renders on every route, Overview tab shows real data against the live API.
-- [ ] T3.2 (pi): `DeadlineRing` — replace `DeadlineBadge`'s text-only countdown with the spec'd
-      SVG ring (§9: "SVG countdown against the RFE response deadline"), same color logic (green
-      → amber → red as the deadline approaches/passes) `prefers-reduced-motion` respected (no
-      animated countdown motion if the user has that preference set). Acceptance: renders
-      correctly for future/near/past deadlines and for `deadline=null`.
-- [ ] T3.3 (Claude): frontend test infrastructure (vitest + React Testing Library — new tooling,
-      worth setting up carefully once rather than pi guessing at config) + a first real test
-      suite for the highest-value components (GateBanner's approve/revise call, CriterionMatrix
-      verdict-rail color mapping, StrategyMemo's gate visibility logic). Acceptance: `npm test`
-      runs in CI.
-- [ ] T3.4 (Claude): accessibility/responsive quality floor per §9 — visible keyboard focus
-      states, WCAG AA contrast check on verdict colors (met/partial/gap against both paper and
-      hairline backgrounds), tablet responsiveness pass on CaseWorkspace's tab layout.
-- [ ] T3.5 (Claude): the actual exit-criterion walkthrough — attorney runs one full case
-      (upload documents → petition analysis → criteria review → strategy approve → draft review
-      → approve) entirely through the UI, no direct API calls, once Docker is confirmed stable.
+- [x] T3.1 (pi): `Shell` (nav + JWT-decoded firm context, sign-out) wrapping every authenticated
+      route; `OverviewTab` (beneficiary profile, `AgentRunTimeline`) — acceptance: `npm run build`
+      clean, Shell wraps both authenticated routes, Overview is the default landing tab
+      · reviewed 2026-07-22 @ PENDING_SHA
+- [x] T3.2 (pi): `DeadlineRing` — real SVG progress ring (87-day RFE window approximation,
+      documented), replacing `DeadlineBadge` in `RFETab`, static/no-animation (trivially respects
+      `prefers-reduced-motion`) — acceptance: correct color/label for future/near/overdue/null
+      deadlines, traced against three fixtures · reviewed 2026-07-22 @ PENDING_SHA. Reviewed the
+      actual diff: one dead-code cleanup (an unused `color` variable applied to a className that
+      nothing inherited from); otherwise clean on the first pass.
+- [x] T3.3 (Claude): vitest + React Testing Library, wired into CI; tests for GateBanner
+      (approve/revise API calls), CriterionMatrix (verdict-rail colors, sort order), StrategyMemo
+      (gate visibility) — acceptance: `npm test` passes, runs in CI · reviewed 2026-07-22 @ PENDING_SHA.
+      Writing the GateBanner test surfaced a real bug (not hypothetical): `decide()` had no error
+      handling, so a failed gate request became a silent unhandled promise rejection with no
+      user-facing feedback. Fixed with the same catch+setError pattern used everywhere else.
+- [x] T3.4 (Claude): WCAG AA contrast audit of the §9 verdict palette — found and fixed two real
+      failures: `verdict-partial` (amber) is 3.7:1 on `paper`, passing the 3:1 UI-component
+      threshold but failing the 4.5:1 text threshold (added `verdict-partial-text` at 5.2:1 for
+      every body-text usage, kept the original for borders/pills); `text-slate` on `Shell`'s dark
+      `bg-ink` header is ~2.9:1 (fails AA even for large text), switched to `text-hairline`
+      (~12.7:1) · reviewed 2026-07-22 @ PENDING_SHA. Keyboard focus: confirmed no component strips
+      the browser default focus outline (`Login.tsx` already has a custom oxblood focus ring;
+      extending that treatment to every interactive element is a nice-to-have, not a compliance
+      gap, since defaults remain visible everywhere else). Tablet responsiveness: button groups
+      use `flex-wrap` to avoid horizontal overflow, but no dedicated breakpoint testing was done —
+      left as an open item below rather than claimed as verified.
+- [ ] T3.5 (Claude): the exit-criterion walkthrough — attorney runs one full case (upload
+      documents → petition analysis → criteria review → strategy approve → draft review →
+      approve) entirely through the UI, no direct API calls. **Blocked on the Docker Desktop
+      build-pipeline issue** (see 2026-07-22 timeline entries) — needs a live stack, not just
+      unit/component tests. Do this before any pilot-readiness claim for the frontend.
 
 ## Phase 4 — Pilot hardening (not started)
 
