@@ -27,7 +27,7 @@ before it ships.
 > unvisited, the first sign-in can take **30–50 seconds** to wake up — the button just shows a
 > spinner during that window, so give it a moment rather than retrying.
 
-![Casewright walkthrough — Overview dashboard, case health and risk scoring, cases, clients, calendar, and the command palette](docs/media/demo.gif)
+<video src="https://github.com/ShayanKhurram/casewright/raw/master/docs/media/github_video.mp4" controls width="100%"></video>
 
 ## What it does
 
