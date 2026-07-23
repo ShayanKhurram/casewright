@@ -42,7 +42,7 @@ export default function Clients() {
   const activeRunsByCase = new Map((activeRuns ?? []).map((r) => [r.case_id, r]));
 
   return (
-    <div className="mx-auto max-w-6xl p-8">
+    <div className="mx-auto max-w-6xl p-4 sm:p-8">
       <h1 className="font-display text-2xl text-text">Clients</h1>
       <p className="mt-2 text-text-dim">Every beneficiary with at least one case at the firm.</p>
 
@@ -77,11 +77,13 @@ export default function Clients() {
                       <span className="min-w-0 flex-1 truncate font-display text-base text-text">
                         {c.beneficiary_name}
                       </span>
-                      <span className="font-mono text-xs text-text-dim">
+                      <span className="hidden shrink-0 font-mono text-xs text-text-dim sm:inline">
                         {c.case_count} case{c.case_count === 1 ? "" : "s"}
                       </span>
-                      <StatusPill status={c.most_urgent_status} />
-                      <span className="font-mono text-[10px] uppercase tracking-wide text-text-faint">
+                      <span className="shrink-0">
+                        <StatusPill status={c.most_urgent_status} />
+                      </span>
+                      <span className="hidden shrink-0 font-mono text-[10px] uppercase tracking-wide text-text-faint md:inline">
                         {c.visa_categories.join(", ")}
                       </span>
                     </button>

@@ -138,13 +138,13 @@ export default function CaseWorkspace() {
 
   return (
     <div className="min-h-full bg-bg">
-      <div className="mx-auto max-w-5xl p-8">
-        <div className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="font-display text-2xl text-text">{caseData?.beneficiary_name}</h1>
+      <div className="mx-auto max-w-5xl p-4 sm:p-8">
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            <h1 className="truncate font-display text-2xl text-text">{caseData?.beneficiary_name}</h1>
             <p className="font-mono text-xs text-text-faint">{caseData?.visa_category}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             {caseData && <StatusPill status={caseData.status} />}
             <RemoveCaseButton caseId={caseId} beneficiaryName={caseData?.beneficiary_name} />
           </div>

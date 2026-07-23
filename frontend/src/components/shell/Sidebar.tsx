@@ -8,6 +8,7 @@ import {
   PanelLeftOpen,
   Settings,
   Users,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { NavLink } from "react-router-dom";
@@ -44,7 +45,20 @@ function NavBadge({ count, collapsed, tone }: { count: number; collapsed: boolea
   );
 }
 
-export default function Sidebar() {
+export interface SidebarProps {
+  /** Whether the mobile off-canvas drawer is open. Ignored at `lg` and above, where the sidebar
+   * is always in-flow (collapse/expand only, the pre-existing desktop behavior). */
+  mobileOpen: boolean;
+  onMobileClose: () => void;
+}
+
+/** Responsive pass: below `lg`, this renders as a `fixed` off-canvas drawer (translated
+ * off-screen when closed, sliding in over a dim backdrop when open) instead of a static
+ * in-flow column — a 224px sidebar permanently eating width on a phone-width viewport was the
+ * single biggest responsive gap in the app. At `lg` and above it's the original static
+ * collapse/expand column, unchanged. Both modes share the same JSX; only the wrapper's
+ * position/transform classes and the backdrop differ by breakpoint. */
+export default function Sidebar({ mobileOpen, onMobileClose }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSE_KEY) === "1");
   const { data: user } = useQuery({
     queryKey: ["me"],
@@ -70,21 +84,29 @@ export default function Sidebar() {
     localStorage.setItem(COLLAPSE_KEY, collapsed ? "1" : "0");
   }, [collapsed]);
 
-  return (
-    <aside
-      className={`flex h-screen flex-col border-r border-border bg-surface transition-all duration-panel ease-casewright ${
-        collapsed ? "w-14" : "w-56"
-      }`}
-    >
+  // Close the drawer on route change (any nav link click) — handled by onMobileClose being
+  // passed straight to NavLink's onClick below, not a route-change effect, since that would
+  // also fire on first mount if the drawer happened to already be open.
+  const navContent = (
+    <>
       <div className="flex h-14 items-center justify-between px-3">
         {!collapsed && <span className="font-display text-lg text-text">Casewright</span>}
-        <button
-          onClick={() => setCollapsed((c) => !c)}
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-          className="rounded-control p-1.5 text-text-faint hover:bg-surface-2 hover:text-text"
-        >
-          {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setCollapsed((c) => !c)}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="hidden rounded-control p-1.5 text-text-faint hover:bg-surface-2 hover:text-text lg:block"
+          >
+            {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
+          </button>
+          <button
+            onClick={onMobileClose}
+            aria-label="Close menu"
+            className="rounded-control p-1.5 text-text-faint hover:bg-surface-2 hover:text-text lg:hidden"
+          >
+            <X size={18} />
+          </button>
+        </div>
       </div>
 
       <nav className="flex-1 px-2 py-2">
@@ -93,6 +115,7 @@ export default function Sidebar() {
             key={to}
             to={to}
             end
+            onClick={onMobileClose}
             className={({ isActive }) =>
               `mb-1 flex items-center gap-3 rounded-control border-l-2 px-2.5 py-2 text-sm transition-colors duration-hover ${
                 isActive
@@ -114,6 +137,7 @@ export default function Sidebar() {
       <div className="border-t border-border px-2 py-2">
         <NavLink
           to="/settings"
+          onClick={onMobileClose}
           className={({ isActive }) =>
             `mb-1 flex items-center gap-3 rounded-control border-l-2 px-2.5 py-2 text-sm transition-colors duration-hover ${
               isActive
@@ -140,6 +164,34 @@ export default function Sidebar() {
           )}
         </div>
       )}
-    </aside>
+    </>
+  );
+
+  return (
+    <>
+      {/* Backdrop — mobile only, only rendered when the drawer is open. Clicking it closes the
+          drawer, same as clicking a nav link. */}
+      {mobileOpen && (
+        <div
+          onClick={onMobileClose}
+          aria-hidden
+          className="fixed inset-0 z-30 bg-bg/70 lg:hidden"
+        />
+      )}
+      <aside
+        className={[
+          "flex flex-col border-r border-border bg-surface transition-all duration-panel ease-casewright",
+          // Mobile: fixed off-canvas drawer, slides in from the left over the backdrop above.
+          // Desktop (lg+): back to the original static in-flow column, transform reset to none
+          // so `collapsed`'s width transition (the pre-existing desktop behavior) still animates
+          // smoothly instead of fighting a leftover translate-x.
+          "fixed inset-y-0 left-0 z-40 w-64 -translate-x-full lg:static lg:z-auto lg:translate-x-0",
+          mobileOpen ? "translate-x-0" : "",
+          collapsed ? "lg:w-14" : "lg:w-56",
+        ].join(" ")}
+      >
+        {navContent}
+      </aside>
+    </>
   );
 }

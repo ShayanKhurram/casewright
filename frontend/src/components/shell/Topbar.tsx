@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Search } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 
@@ -29,22 +29,22 @@ function Breadcrumb() {
 
   if (caseId) {
     return (
-      <div className="flex items-center gap-1.5 text-sm">
-        <Link to="/cases" className="text-text-dim hover:text-text">
+      <div className="flex min-w-0 items-center gap-1.5 text-sm">
+        <Link to="/cases" className="shrink-0 text-text-dim hover:text-text">
           Cases
         </Link>
-        <span className="text-text-faint">/</span>
-        <span className="text-text">{caseData?.beneficiary_name ?? "…"}</span>
+        <span className="shrink-0 text-text-faint">/</span>
+        <span className="truncate text-text">{caseData?.beneficiary_name ?? "…"}</span>
       </div>
     );
   }
 
   if (location.pathname === "/") {
-    return <span className="text-sm text-text">Overview</span>;
+    return <span className="truncate text-sm text-text">Overview</span>;
   }
 
   const label = SECTION_LABELS[location.pathname];
-  return <span className="text-sm text-text">{label ?? "Casewright"}</span>;
+  return <span className="truncate text-sm text-text">{label ?? "Casewright"}</span>;
 }
 
 /** Expanding topbar search (Phase 8, T8.5) — on focus opens a dropdown under the input showing
@@ -131,7 +131,11 @@ function TopbarSearch() {
   const showDropdown = open && query.length > 0;
 
   return (
-    <div ref={containerRef} className="relative w-80">
+    // Hidden below `sm` (no room for it alongside the hamburger + breadcrumb + right icon
+    // cluster on a phone-width viewport — ⌘K/CommandPalette covers the same lookup there),
+    // then grows progressively wider as there's more room. `min-w-0` lets this shrink inside
+    // the header's flex row instead of forcing page-level horizontal overflow.
+    <div ref={containerRef} className="relative hidden min-w-0 sm:block sm:w-48 md:w-64 lg:w-80">
       <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-faint" />
       <Input
         value={value}
@@ -211,12 +215,21 @@ function TopbarSearch() {
   );
 }
 
-export default function Topbar() {
+export default function Topbar({ onMenuClick }: { onMenuClick: () => void }) {
   return (
-    <header className="flex h-14 items-center justify-between border-b border-border bg-surface px-6">
-      <Breadcrumb />
+    <header className="flex h-14 items-center justify-between gap-3 border-b border-border bg-surface px-3 sm:px-6">
+      <div className="flex min-w-0 items-center gap-2">
+        <button
+          onClick={onMenuClick}
+          aria-label="Open menu"
+          className="shrink-0 rounded-control p-1.5 text-text-dim hover:bg-surface-2 hover:text-text lg:hidden"
+        >
+          <Menu size={18} />
+        </button>
+        <Breadcrumb />
+      </div>
       <TopbarSearch />
-      <div className="flex items-center gap-3">
+      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         <RunIndicator />
         <NotificationBell />
         <UserMenu />

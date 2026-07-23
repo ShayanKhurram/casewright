@@ -237,28 +237,31 @@ export default function DraftsTab({ caseId }: { caseId: string }) {
         </div>
       )}
 
-      {/* overflow-x-auto (T5.8 tablet check): the two fixed-width columns (nav 192px + aside
-          224px) plus gaps leave a genuinely tight center pane below ~1024px — this is a hard
-          three-pane-on-tablet layout problem the redesign plan doesn't solve either; scrolling
-          horizontally as a floor is safer than letting the center pane get crushed or the fixed
-          columns force page-level overflow. A real narrow-viewport pass (e.g. collapsing the
-          source panel below the body under `lg:`) is a follow-up, not solved here. */}
-      <div className="flex gap-6 overflow-x-auto">
-        <nav className="w-48 shrink-0 space-y-1">
+      {/* Responsive pass: below `lg`, the three panes stack vertically (nav row → body →
+          sources) instead of sitting side by side — the previous fix here was "scroll
+          horizontally," which technically avoided page overflow but meant the source panel was
+          permanently off-screen without deliberately scrolling sideways to find it. Above `lg`
+          there's room for all three columns at once, unchanged from before. The nav becomes a
+          horizontally-scrolling pill row on mobile (matches the CaseWorkspace tab bar's own
+          narrow-viewport pattern) rather than a full-width vertical list, since a vertical list
+          of section headings would push the body far down the page on a long draft. */}
+      <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
+        <nav className="flex gap-1 overflow-x-auto pb-1 lg:w-48 lg:shrink-0 lg:flex-col lg:space-y-1 lg:overflow-visible lg:pb-0">
           {sortedSections.map((s) => (
-            <SectionNavItem
-              key={s.id}
-              section={s}
-              active={s.id === selectedSection?.id}
-              staggerIndex={staggerMap.get(s.id)}
-              onClick={() => setSectionId(s.id)}
-            />
+            <div key={s.id} className="shrink-0 lg:w-full lg:shrink">
+              <SectionNavItem
+                section={s}
+                active={s.id === selectedSection?.id}
+                staggerIndex={staggerMap.get(s.id)}
+                onClick={() => setSectionId(s.id)}
+              />
+            </div>
           ))}
         </nav>
 
-        <div className="min-w-0 flex-1">{selectedSection && <SectionReviewer section={selectedSection} caseId={caseId} />}</div>
+        <div className="min-w-0 lg:flex-1">{selectedSection && <SectionReviewer section={selectedSection} caseId={caseId} />}</div>
 
-        <aside className="w-56 shrink-0">
+        <aside className="lg:w-56 lg:shrink-0">
           <h4 className="mb-2 flex items-center gap-1.5 font-mono text-xs uppercase tracking-wide text-text-dim">
             Sources <ExternalLink size={12} className="text-text-faint" />
           </h4>

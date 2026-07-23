@@ -65,13 +65,13 @@ export default function Calendar() {
   ];
 
   return (
-    <div className="mx-auto max-w-6xl p-8">
-      <div className="flex items-center justify-between">
+    <div className="mx-auto max-w-6xl p-4 sm:p-8">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl text-text">Calendar</h1>
           <p className="mt-2 text-text-dim">Filing and RFE response deadlines across every case.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <button
             onClick={() => setCursor(new Date(year, month - 1, 1))}
             className="rounded-control p-1.5 text-text-dim hover:bg-surface-2 hover:text-text"
@@ -95,15 +95,15 @@ export default function Calendar() {
       {isLoading ? (
         <p className="mt-6 text-sm text-text-dim">Loading…</p>
       ) : (
-        <div className="mt-6 overflow-hidden rounded-card border border-border bg-surface">
-          <div className="grid grid-cols-7 border-b border-border">
+        <div className="mt-6 overflow-x-auto rounded-card border border-border bg-surface">
+          <div className="grid min-w-[560px] grid-cols-7 border-b border-border">
             {WEEKDAY_LABELS.map((label) => (
               <div key={label} className="p-2 text-center font-mono text-[11px] uppercase tracking-wide text-text-faint">
                 {label}
               </div>
             ))}
           </div>
-          <div className="grid grid-cols-7">
+          <div className="grid min-w-[560px] grid-cols-7">
             {cells.map((date, i) => {
               const deadlines = date ? (byDay.get(dateKey(date)) ?? []) : [];
               const isToday = date != null && dateKey(date) === dateKey(new Date());

@@ -114,7 +114,7 @@ export default function Overview() {
   }).length;
 
   return (
-    <div className="mx-auto max-w-6xl p-8">
+    <div className="mx-auto max-w-6xl p-4 sm:p-8">
       <h1 className="font-display text-2xl text-text">Overview</h1>
       <p className="mt-2 text-text-dim">{today}</p>
 

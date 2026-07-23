@@ -136,8 +136,8 @@ export default function CasesList() {
 
   return (
     <div className="min-h-full bg-bg">
-      <div className="mx-auto max-w-6xl p-8">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mx-auto max-w-6xl p-4 sm:p-8">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-2">
         <h1 className="font-display text-2xl text-text">Cases</h1>
         <Button onClick={() => setDialogOpen(true)}>
           <Plus size={16} className="-ml-0.5" />
