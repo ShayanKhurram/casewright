@@ -117,7 +117,7 @@ async def list_all_documents(
     query = (
         select(Document, Case)
         .join(Case, Case.id == Document.case_id)
-        .where(Case.firm_id == current_user.firm_id)
+        .where(Case.firm_id == current_user.firm_id, Case.archived.is_(False))
         .order_by(Document.created_at.desc())
     )
     if case_id is not None:

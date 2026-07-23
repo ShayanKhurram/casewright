@@ -64,3 +64,30 @@ async def test_active_runs_is_firm_scoped(db_session: AsyncSession, client: Asyn
 
     assert res.status_code == 200
     assert res.json() == [], "firm B must not see firm A's active runs"
+
+
+async def test_active_runs_excludes_archived_cases(db_session: AsyncSession, client: AsyncClient):
+    """Regression test: archiving a case used to leave its still-waiting_review runs showing up
+    here, so the RunIndicator/notification feed pointed at a case that 404s the moment you click
+    it -- looked exactly like a stuck/broken run. Archived means gone everywhere, not just from
+    GET /cases and get_case_scoped."""
+    firm, _user = await _make_firm_and_user(db_session, email="d@active-runs.test", password="pw-12345678")
+    case = Case(firm_id=firm.id, beneficiary_name="To Be Archived", visa_category="EB-1A", status="strategy_review")
+    db_session.add(case)
+    await db_session.flush()
+    db_session.add(
+        AgentRun(firm_id=firm.id, case_id=case.id, graph="petition", thread_id="t5", status="waiting_review")
+    )
+    await db_session.flush()
+
+    token = await _login(client, "d@active-runs.test", "pw-12345678")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    before = await client.get("/api/runs/active", headers=headers)
+    assert len(before.json()) == 1
+
+    archive_res = await client.delete(f"/api/cases/{case.id}", headers=headers)
+    assert archive_res.status_code == 204
+
+    after = await client.get("/api/runs/active", headers=headers)
+    assert after.json() == []

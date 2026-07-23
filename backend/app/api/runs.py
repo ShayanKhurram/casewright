@@ -24,11 +24,21 @@ async def list_active_runs(
 ) -> list[ActiveRunOut]:
     """Firm-wide, not case-scoped — powers the topbar's RunIndicator (plan §4), which needs
     to know about every in-flight run regardless of which case workspace the attorney is
-    currently looking at."""
+    currently looking at.
+
+    Excludes archived cases' runs (Case.archived) — missed this the first time the archive
+    feature shipped: an archived case already 404s on GET /cases/{id} and get_case_scoped, but
+    its still-"waiting_review" runs kept surfacing here, so the RunIndicator could show a case
+    that looks alive and waiting on you, and clicking it lands on a 404. Archiving needs to mean
+    gone everywhere a case can be reached from, not just the two places it was first wired in."""
     result = await db.execute(
         select(AgentRun, Case.beneficiary_name)
         .join(Case, Case.id == AgentRun.case_id)
-        .where(AgentRun.firm_id == current_user.firm_id, AgentRun.status.in_(["running", "waiting_review"]))
+        .where(
+            AgentRun.firm_id == current_user.firm_id,
+            AgentRun.status.in_(["running", "waiting_review"]),
+            Case.archived.is_(False),
+        )
         .order_by(AgentRun.updated_at.desc())
     )
     return [

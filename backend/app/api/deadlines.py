@@ -23,7 +23,11 @@ async def list_deadlines(
     current_user: User = Depends(get_current_user),
 ) -> list[DeadlineOut]:
     filing_result = await db.execute(
-        select(Case).where(Case.firm_id == current_user.firm_id, Case.filing_deadline.is_not(None))
+        select(Case).where(
+            Case.firm_id == current_user.firm_id,
+            Case.filing_deadline.is_not(None),
+            Case.archived.is_(False),
+        )
     )
     deadlines = [
         DeadlineOut(
@@ -39,7 +43,11 @@ async def list_deadlines(
     rfe_result = await db.execute(
         select(RFENotice, Case)
         .join(Case, Case.id == RFENotice.case_id)
-        .where(Case.firm_id == current_user.firm_id, RFENotice.response_deadline.is_not(None))
+        .where(
+            Case.firm_id == current_user.firm_id,
+            RFENotice.response_deadline.is_not(None),
+            Case.archived.is_(False),
+        )
     )
     for notice, case in rfe_result.all():
         deadlines.append(

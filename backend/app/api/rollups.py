@@ -37,7 +37,9 @@ async def list_clients(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[ClientOut]:
-    result = await db.execute(select(Case).where(Case.firm_id == current_user.firm_id))
+    result = await db.execute(
+        select(Case).where(Case.firm_id == current_user.firm_id, Case.archived.is_(False))
+    )
     cases = list(result.scalars().all())
 
     by_name: dict[str, list[Case]] = defaultdict(list)
