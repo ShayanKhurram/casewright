@@ -62,8 +62,13 @@ async def get_case_scoped(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Case:
+    # archived == False here too, not just in the list endpoint: an archived case is the "remove
+    # this case" affordance (real hard DELETE is architecturally impossible once a case has any
+    # audit_log row — see Case.archived's docstring), so it must 404 like it doesn't exist for
+    # every case-scoped route (documents, runs, gates, everything), not just stay hidden from the
+    # list view while still directly reachable by a stale/guessed URL.
     result = await db.execute(
-        select(Case).where(Case.id == case_id, Case.firm_id == current_user.firm_id)
+        select(Case).where(Case.id == case_id, Case.firm_id == current_user.firm_id, Case.archived.is_(False))
     )
     case = result.scalar_one_or_none()
     if case is None:

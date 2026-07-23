@@ -51,6 +51,19 @@ class Case(Base, UUIDPKMixin, TenantMixin, TimestampMixin):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="intake")
     profile: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
     filing_deadline: Mapped[date | None] = mapped_column(nullable=True)
+    archived: Mapped[bool] = mapped_column(
+        nullable=False,
+        default=False,
+        doc=(
+            "Soft-delete flag. A real hard DELETE is architecturally impossible once a case has "
+            "any audit_log row (every case, immediately on creation) — the FK's ON DELETE "
+            "SET NULL would issue an UPDATE against audit_log, and the append-only trigger "
+            "(trg_audit_log_immutable) blocks UPDATE *and* DELETE on that table for every role, "
+            "including the owner, by design. Archiving is the real 'remove this case' affordance: "
+            "excluded from GET /cases and from get_case_scoped (404s like it doesn't exist), row "
+            "and full history preserved."
+        ),
+    )
 
 
 class Document(Base, UUIDPKMixin, TenantMixin, TimestampMixin):

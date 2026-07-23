@@ -1,6 +1,8 @@
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useParams, useSearchParams } from "react-router-dom";
+import { Trash2 } from "lucide-react";
+import { useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import CaseQAPanel from "../components/CaseQAPanel";
 import CriteriaTab from "../components/CriteriaTab";
@@ -11,8 +13,68 @@ import OverviewTab from "../components/OverviewTab";
 import RFETab from "../components/RFETab";
 import StatusPill from "../components/StatusPill";
 import StrategyTab from "../components/StrategyTab";
+import Button from "../components/ui/Button";
+import Dialog from "../components/ui/Dialog";
+import { useToast } from "../components/ui/Toast";
 import { apiFetch } from "../lib/api";
 import { AgentRun, Case, CriterionAssessment, Document, Draft } from "../types";
+
+/** Confirm-then-archive (Phase 8 follow-up). There is no hard delete — see
+ * backend/app/api/cases.py's module docstring: audit_log is append-only, which makes a real
+ * DELETE FROM cases architecturally impossible for any case that's ever had an audit_log row
+ * (every case, immediately on creation). DELETE /cases/{id} archives instead — same visible
+ * effect (gone from the list, 404s directly), history preserved underneath. */
+function RemoveCaseButton({ caseId, beneficiaryName }: { caseId: string; beneficiaryName?: string }) {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [removing, setRemoving] = useState(false);
+
+  async function handleRemove() {
+    setRemoving(true);
+    try {
+      await apiFetch(`/cases/${caseId}`, { method: "DELETE" });
+      await queryClient.invalidateQueries({ queryKey: ["cases"] });
+      navigate("/cases");
+    } catch (err) {
+      toast({
+        variant: "error",
+        title: "Couldn't remove the case",
+        description: err instanceof Error ? err.message : undefined,
+        action: { label: "Retry", onClick: handleRemove },
+      });
+      setRemoving(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        aria-label="Remove case"
+        className="rounded-control p-1.5 text-text-faint hover:bg-surface-2 hover:text-gap"
+      >
+        <Trash2 size={16} />
+      </button>
+      <Dialog
+        open={open}
+        onOpenChange={setOpen}
+        title="Remove this case?"
+        description={`${beneficiaryName ?? "This case"} will no longer appear anywhere in the app. This can't be undone from the UI.`}
+      >
+        <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={() => setOpen(false)} disabled={removing}>
+            Cancel
+          </Button>
+          <Button variant="destructive" loading={removing} onClick={handleRemove}>
+            Remove case
+          </Button>
+        </div>
+      </Dialog>
+    </>
+  );
+}
 
 const TABS = ["Overview", "Evidence", "Criteria", "Strategy", "Drafts", "RFE", "Ask"] as const;
 
@@ -82,7 +144,10 @@ export default function CaseWorkspace() {
             <h1 className="font-display text-2xl text-text">{caseData?.beneficiary_name}</h1>
             <p className="font-mono text-xs text-text-faint">{caseData?.visa_category}</p>
           </div>
-          {caseData && <StatusPill status={caseData.status} />}
+          <div className="flex items-center gap-2">
+            {caseData && <StatusPill status={caseData.status} />}
+            <RemoveCaseButton caseId={caseId} beneficiaryName={caseData?.beneficiary_name} />
+          </div>
         </div>
 
         {gateRun && <GateBanner run={gateRun} onDecided={refreshAfterGate} />}
