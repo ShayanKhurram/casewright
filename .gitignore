@@ -22,3 +22,4 @@ backend/.pi-sessions/
 backups/
 supabase/.temp/
 backend/supabase/.temp/
+docs/media/github_video.mp4

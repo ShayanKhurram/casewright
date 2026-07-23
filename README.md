@@ -27,7 +27,7 @@ before it ships.
 > unvisited, the first sign-in can take **30–50 seconds** to wake up — the button just shows a
 > spinner during that window, so give it a moment rather than retrying.
 
-<video src="https://github.com/ShayanKhurram/casewright/raw/master/docs/media/github_video.mp4" controls width="100%"></video>
+https://github.com/user-attachments/assets/b964ec4f-2019-43db-8cef-0605388823ab
 
 ## What it does
 
