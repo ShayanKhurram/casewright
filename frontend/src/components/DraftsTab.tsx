@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, FileX } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { apiFetch } from "../lib/api";
@@ -7,6 +7,7 @@ import { useStaggeredReveal } from "../lib/useStaggeredReveal";
 import { AgentRun, Draft, DraftSection } from "../types";
 import DraftSkeleton from "./DraftSkeleton";
 import Button from "./ui/Button";
+import EmptyState from "./ui/EmptyState";
 import Select from "./ui/Select";
 import { useToast } from "./ui/Toast";
 
@@ -201,6 +202,24 @@ export default function DraftsTab({ caseId }: { caseId: string }) {
   if (isLoading) return <DraftSkeleton />;
   if (!drafts || drafts.length === 0) {
     return <p className="text-sm text-text-dim">No drafts yet.</p>;
+  }
+  if (sortedSections.length === 0 && !drafting) {
+    // A real Draft row with zero sections is a valid, honest outcome — not an error: the
+    // strategy phase decided no criteria were worth arguing (criteria_to_argue was empty), so
+    // drafting_node correctly produced nothing rather than fabricating unsupported arguments.
+    // Falling through to the three-pane layout here used to render three blank columns with no
+    // explanation, which looked exactly like "drafting never ran" — it did run, it just had
+    // nothing to draft. Point back at the Strategy tab's memo, the actual source of the decision.
+    // Guarded on `!drafting` — while a run is actively producing sections, this state is also
+    // briefly true before the first section lands, and showing this message then would be
+    // actively wrong, not just unhelpful (DraftSkeleton/the polling refetch handles that window).
+    return (
+      <EmptyState
+        icon={FileX}
+        title="No sections were drafted"
+        description="The strategy memo didn't recommend arguing any criteria for this case, so there was nothing to draft. See the Strategy tab for the reasoning and recommended next steps."
+      />
+    );
   }
 
   return (
