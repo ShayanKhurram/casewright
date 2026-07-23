@@ -14,6 +14,20 @@ export function clearToken(): void {
   localStorage.removeItem(TOKEN_KEY);
 }
 
+/** A 401 here means the stored token is missing/expired/invalid, not that this particular
+ * request was malformed — every route requires auth, so the token is bad for every future
+ * request too. `RequireAuth` (App.tsx) only checks that a token exists, not that it's still
+ * valid, so without this the app would otherwise render normally and every query would just
+ * fail silently forever. Full navigation (not react-router) so the stale React Query cache
+ * doesn't survive into the re-login. */
+function handleUnauthorized(): never {
+  clearToken();
+  if (window.location.pathname !== "/login") {
+    window.location.href = "/login";
+  }
+  throw new Error("401 Unauthorized");
+}
+
 export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers = new Headers(init.headers);
@@ -21,6 +35,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
   const res = await fetch(`/api${path}`, { ...init, headers });
+  if (res.status === 401) handleUnauthorized();
   if (!res.ok) {
     throw new Error(`${res.status} ${res.statusText}`);
   }
@@ -51,6 +66,7 @@ export async function uploadDocument<T>(caseId: string, kind: string, file: File
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: form,
   });
+  if (res.status === 401) handleUnauthorized();
   if (!res.ok) {
     const detail = await res.text();
     throw new Error(detail || `${res.status} ${res.statusText}`);
